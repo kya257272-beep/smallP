@@ -1,0 +1,171 @@
+/* styles/api-config.css */
+/* API配置页面基础样式 */
+
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background-color: #fff;
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    position: relative;
+    background-color: var(--topbar-color, #f8d1db);
+    padding: 20px;
+    text-align: center;
+    transition: background-color 0.3s ease;
+}
+
+.header h1 {
+    color: white;
+    margin: 0;
+}
+
+.form-container {
+    padding: 20px;
+}
+
+label {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    display: block;
+    color: #333;
+    font-weight: 500;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fafafa;
+    box-sizing: border-box;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--btn-color, #f8d1db);
+    box-shadow: 0 0 0 3px rgba(248, 203, 208, 0.3);
+    background: #fff;
+}
+
+/* 按钮容器 */
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+/* 通用按钮样式 */
+button {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 25px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: var(--btn-color, #f8d1db) !important;
+    transition: background-color 0.25s ease, transform 0.15s ease, box-shadow 0.2s;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+button:hover {
+    background-color: var(--btn-hover, #f4a1c1) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+    background-color: var(--btn-active, #e588a8) !important;
+    transform: translateY(0);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 表单容器响应式 */
+.form-container {
+    padding: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* 输入框响应式 */
+input, select {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+/* 按钮组响应式 */
+.button-group {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 420px) {
+    .form-container {
+        padding: 12px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .button-group button {
+        width: 100%;
+    }
+    
+    label {
+        font-size: 1rem;
+    }
+}
+
+/* 额外增强样式 */
+textarea {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--btn-color, #f8d1db);
+    box-shadow: 0 0 0 3px rgba(248, 203, 208, 0.3);
+}
+
+/* 平滑滚动 */
+html {
+    scroll-behavior: smooth;
+}
+
+/* 选中状态 */
+::selection {
+    background: rgba(248, 203, 208, 0.4);
+}
+
+/* 数字输入框样式优化 */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

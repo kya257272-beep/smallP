@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>预设配置</title>
+  <link rel="stylesheet" href="styles/preset.css">
+</head>
+<body>
+  <!-- 顶栏 -->
+  <div class="preset-topbar">
+    <button class="back-btn" id="back-btn">←</button>
+    <span class="topbar-title">预设配置</span>
+    <div class="topbar-actions">
+      <button class="topbar-icon-btn" id="exportAllBtn" title="导出全部预设">📤</button>
+      <button class="add-preset-btn" id="addPresetBtn">+ 新建</button>
+    </div>
+  </div>
+
+  <!-- 内容区域 -->
+  <div class="preset-container">
+    <!-- 当前激活预设提示 -->
+    <div class="active-preset-hint" id="activePresetHint">
+      <span class="hint-icon">✨</span>
+      <span class="hint-text">当前激活：<strong id="activePresetName">无</strong></span>
+    </div>
+    
+    <!-- 预设列表 -->
+    <div class="preset-list" id="presetList">
+      <div class="empty-hint" id="emptyHint">
+        <span class="empty-icon">📝</span>
+        <p>暂无预设，点击右上角新建</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 预设编辑弹窗 -->
+  <div class="modal-overlay" id="presetModal">
+    <div class="modal-panel preset-edit-panel">
+      <div class="modal-header">
+        <input type="text" class="preset-name-input" id="presetNameInput" placeholder="预设名称">
+        <button class="modal-close-btn" id="closePresetModal">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="entries-section">
+          <div class="section-header">
+            <span>提示词条目</span>
+            <button class="add-entry-btn" id="addEntryBtn">+ 添加条目</button>
+          </div>
+          <div class="drag-hint">💡 拖拽条目可调整顺序，顺序决定发送先后</div>
+          <div class="entries-list" id="entriesList"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="exportPresetBtn">📤 导出</button>
+        <button class="btn btn-danger" id="deletePresetBtn">删除预设</button>
+        <button class="btn btn-primary" id="savePresetBtn">保存预设</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 条目编辑弹窗 -->
+  <div class="modal-overlay" id="entryModal">
+    <div class="modal-panel entry-edit-panel">
+      <div class="modal-header">
+        <input type="text" class="entry-name-input" id="entryNameInput" placeholder="条目名称">
+        <button class="modal-close-btn" id="closeEntryModal">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- 角色选择 -->
+        <div class="form-group">
+          <label>消息角色</label>
+          <div class="role-selector" id="roleSelector">
+            <button class="role-btn active" data-role="system">
+              <span class="role-icon">⚙️</span>
+              <span class="role-name">System</span>
+            </button>
+            <button class="role-btn" data-role="user">
+              <span class="role-icon">👤</span>
+              <span class="role-name">User</span>
+            </button>
+            <button class="role-btn" data-role="assistant">
+              <span class="role-icon">🤖</span>
+              <span class="role-name">Assistant</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 深度设置 -->
+        <div class="form-group">
+          <label>插入深度 <span class="depth-hint">(0=最底部，数字越大越靠前)</span></label>
+          <div class="depth-control">
+            <button class="depth-btn" id="depthMinus">−</button>
+            <input type="number" class="depth-input" id="entryDepth" value="0" min="0" max="999">
+            <button class="depth-btn" id="depthPlus">+</button>
+          </div>
+        </div>
+        
+        <!-- 内容 -->
+        <div class="form-group">
+          <label>提示词内容</label>
+          <textarea class="entry-content-input" id="entryContent" placeholder="在此输入提示词内容..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="deleteEntryBtn">删除条目</button>
+        <button class="btn btn-primary" id="saveEntryBtn">保存条目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导出弹窗 -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal-panel export-panel">
+      <div class="modal-header">
+        <span class="modal-title">导出预设</span>
+        <button class="modal-close-btn" id="closeExportModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea class="export-content" id="exportContent" readonly></textarea>
+        <div class="export-actions">
+          <button class="btn btn-primary" id="copyExportBtn">📋 复制到剪贴板</button>
+          <button class="btn btn-secondary" id="downloadExportBtn">💾 下载文件</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script src="scripts/frame-helper.js"></script>
+  <script src="scripts/preset.js"></script>
+</body>
+</html>

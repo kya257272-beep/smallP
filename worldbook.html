@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>世界书管理</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/worldbook.css">
+</head>
+<body class="worldbook-body">
+  <!-- 顶栏 -->
+  <div class="wb-topbar">
+    <button class="topbar-btn back-btn" onclick="goBack()">←</button>
+    <span class="topbar-title">世界书管理</span>
+    <button class="topbar-btn add-btn" onclick="openCreateModal()">+</button>
+  </div>
+
+  <!-- 标签页切换 -->
+  <div class="wb-tabs">
+    <div class="wb-tab active" data-tab="character" onclick="switchTab('character')">角色世界书</div>
+    <div class="wb-tab" data-tab="global" onclick="switchTab('global')">全局世界书</div>
+  </div>
+
+  <!-- 搜索栏 -->
+  <div class="wb-search">
+    <input type="text" id="wb-search-input" placeholder="🔍 搜索世界书或条目..." oninput="searchWorldBooks()">
+  </div>
+
+  <!-- 世界书列表 -->
+  <div class="wb-list" id="wb-list">
+    <!-- 动态生成 -->
+  </div>
+
+  <!-- 创建/编辑世界书弹窗 -->
+  <div class="modal" id="create-wb-modal">
+    <div class="modal-backdrop" onclick="closeCreateModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="create-modal-title">创建世界书</span>
+        <button class="close-btn" onclick="closeCreateModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>世界书名称 *</label>
+          <input type="text" id="wb-name" placeholder="如：魔法世界设定">
+        </div>
+        <div class="form-group">
+          <label>描述</label>
+          <textarea id="wb-description" rows="3" placeholder="这本世界书的简介..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>关联角色</label>
+          <select id="wb-character">
+            <option value="">全局世界书（不关联角色）</option>
+            <!-- 动态填充角色列表 -->
+          </select>
+        </div>
+        <input type="hidden" id="wb-edit-id">
+        <button class="save-btn" onclick="saveWorldBook()">保存世界书</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 世界书详情/条目管理弹窗 -->
+  <div class="modal" id="wb-detail-modal">
+    <div class="modal-backdrop" onclick="closeDetailModal()"></div>
+    <div class="modal-content wb-detail-content">
+      <div class="modal-header">
+        <span id="detail-modal-title">世界书详情</span>
+        <button class="close-btn" onclick="closeDetailModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 世界书信息 -->
+        <div class="wb-info-card">
+          <div class="wb-info-row">
+            <span class="wb-info-label">名称：</span>
+            <span class="wb-info-value" id="detail-name">-</span>
+          </div>
+          <div class="wb-info-row">
+            <span class="wb-info-label">描述：</span>
+            <span class="wb-info-value" id="detail-description">-</span>
+          </div>
+          <div class="wb-info-row">
+            <span class="wb-info-label">关联：</span>
+            <span class="wb-info-value" id="detail-character">全局</span>
+          </div>
+          <div class="wb-info-actions">
+            <button class="action-btn edit" onclick="editCurrentWorldBook()">✏️ 编辑</button>
+            <button class="action-btn delete" onclick="deleteCurrentWorldBook()">🗑️ 删除</button>
+            <button class="action-btn export" onclick="exportCurrentWorldBook()">📤 导出</button>
+          </div>
+        </div>
+
+        <!-- 条目列表 -->
+        <div class="entries-header">
+          <h3>📖 条目列表 (<span id="entries-count">0</span>)</h3>
+          <button class="add-entry-btn" onclick="openEntryModal()">+ 添加条目</button>
+        </div>
+        
+        <div class="entries-list" id="entries-list">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 条目编辑弹窗 -->
+  <div class="modal" id="entry-modal">
+    <div class="modal-backdrop" onclick="closeEntryModal()"></div>
+    <div class="modal-content entry-modal-content">
+      <div class="modal-header">
+        <span id="entry-modal-title">添加条目</span>
+        <button class="close-btn" onclick="closeEntryModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>条目名称/注释</label>
+          <input type="text" id="entry-comment" placeholder="如：魔法体系说明">
+        </div>
+        
+        <div class="form-group">
+          <label>触发关键词 *</label>
+          <input type="text" id="entry-keys" placeholder="用逗号分隔，如：魔法,咒语,法术">
+          <div class="form-hint">当对话中出现这些词时，此条目会被激活</div>
+        </div>
+        
+        <div class="form-group">
+          <label>二级关键词（可选）</label>
+          <input type="text" id="entry-secondary-keys" placeholder="需要同时出现的词">
+          <div class="form-hint">启用选择性匹配时，需要同时匹配主关键词和二级关键词</div>
+        </div>
+        
+        <div class="form-group">
+          <label>条目内容 *</label>
+          <textarea id="entry-content" rows="6" placeholder="这里写入当关键词触发时要注入的设定内容..."></textarea>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group half">
+            <label>插入位置</label>
+            <select id="entry-position">
+              <option value="before_char">角色设定之前</option>
+              <option value="after_char">角色设定之后</option>
+              <option value="before_example">示例对话之前</option>
+              <option value="after_example">示例对话之后</option>
+              <option value="at_depth">指定深度</option>
+            </select>
+          </div>
+          <div class="form-group half">
+            <label>优先级</label>
+            <input type="number" id="entry-priority" value="10" min="0" max="1000">
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group half">
+            <label>插入深度</label>
+            <input type="number" id="entry-depth" value="4" min="0" max="100">
+            <div class="form-hint">0=最新消息，数字越大越靠前</div>
+          </div>
+          <div class="form-group half">
+            <label>排序顺序</label>
+            <input type="number" id="entry-order" value="0" min="0">
+          </div>
+        </div>
+        
+        <div class="form-toggles">
+          <label class="toggle-item">
+            <input type="checkbox" id="entry-enabled" checked>
+            <span class="toggle-label">启用</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="entry-constant">
+            <span class="toggle-label">常驻（始终激活）</span>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="entry-selective">
+            <span class="toggle-label">选择性匹配（需二级关键词）</span>
+          </label>
+        </div>
+        
+        <input type="hidden" id="entry-edit-id">
+        <button class="save-btn" onclick="saveEntry()">保存条目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入世界书弹窗 -->
+  <div class="modal" id="import-modal">
+    <div class="modal-backdrop" onclick="closeImportModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>导入世界书</span>
+        <button class="close-btn" onclick="closeImportModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-options">
+          <div class="import-option" onclick="importFromFile()">
+            <div class="option-icon">📄</div>
+            <div class="option-text">从JSON文件导入</div>
+          </div>
+          <div class="import-option" onclick="importFromClipboard()">
+            <div class="option-icon">📋</div>
+            <div class="option-text">从剪贴板粘贴</div>
+          </div>
+        </div>
+        
+        <div class="import-paste-area" id="import-paste-area" style="display:none;">
+          <textarea id="import-text" rows="8" placeholder="粘贴世界书JSON数据..."></textarea>
+          <button class="save-btn" onclick="processImport()">确认导入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部操作栏 -->
+  <div class="wb-bottom-bar">
+    <button class="bottom-btn" onclick="openImportModal()">
+      <span class="btn-icon">📥</span>
+      <span class="btn-text">导入</span>
+    </button>
+    <button class="bottom-btn" onclick="exportAllWorldBooks()">
+      <span class="btn-icon">📤</span>
+      <span class="btn-text">导出全部</span>
+    </button>
+  </div>
+
+  <!-- 隐藏的文件输入 -->
+  <input type="file" id="wb-file-input" accept=".json" style="display:none" onchange="handleFileImport(this)">
+
+  <script src="scripts/worldbook.js"></script>
+</body>
+</html>

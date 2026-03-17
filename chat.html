@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>消息</title>
+  <link rel="stylesheet" href="styles/chat.css">
+  <style id="custom-theme-css"></style>
+</head>
+<body id="chat-body">
+  <!-- 顶栏 -->
+  <div class="qq-topbar" id="qq-topbar">
+    <button class="topbar-btn back-btn" onclick="goBack()">←</button>
+    <div class="topbar-title" id="topbar-title">消息</div>
+    <div class="topbar-actions">
+      <button class="topbar-btn" onclick="openAddMenu()">＋</button>
+    </div>
+  </div>
+
+  <!-- 搜索栏 -->
+  <div class="qq-search" id="qq-search">
+    <input type="text" id="search-input" placeholder="搜索" oninput="filterCharacters()">
+  </div>
+
+  <!-- 滑动容器 -->
+  <div class="swipe-container" id="swipe-container">
+    <!-- 消息页 -->
+    <div class="swipe-page" id="page-messages">
+      <div class="character-list" id="character-list"></div>
+    </div>
+    
+    <!-- 主题页 -->
+    <div class="swipe-page" id="page-theme">
+      <div class="theme-panel">
+        <div class="theme-section">
+          <div class="section-title">主题色</div>
+          <div class="theme-item" onclick="openTopbarColorPicker()">
+            <span>顶栏颜色</span>
+            <div class="color-preview" id="topbar-color-preview"></div>
+          </div>
+          <div class="theme-item" onclick="openBubbleColorPicker()">
+            <span>气泡颜色</span>
+            <div class="color-preview" id="bubble-color-preview"></div>
+          </div>
+        </div>
+        
+        <div class="theme-section">
+          <div class="section-title">个性装扮</div>
+          <div class="theme-item" onclick="openWallpaperPicker()">
+            <span>主界面壁纸</span>
+            <span class="arrow">›</span>
+          </div>
+          <div class="theme-item" onclick="openAvatarFramePicker()">
+            <span>头像框</span>
+            <span class="arrow">›</span>
+          </div>
+        </div>
+        
+        <div class="theme-section">
+          <div class="section-title">高级</div>
+          <div class="theme-item" onclick="openCustomCSS()">
+            <span>自定义CSS</span>
+            <span class="arrow">›</span>
+          </div>
+          <div class="theme-item danger" onclick="resetTheme()">
+            <span>重置主题</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 空间页 -->
+    <div class="swipe-page" id="page-space">
+      <div class="space-panel">
+        <div class="dynamics-header">
+          <span>角色动态</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dynamics-toggle" onchange="toggleDynamics()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="dynamics-list" id="dynamics-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部标签栏 -->
+  <div class="qq-tabbar" id="qq-tabbar">
+    <div class="tab-item active" onclick="switchPage(0)">
+      <div class="tab-icon">💬</div>
+      <div class="tab-name">消息</div>
+    </div>
+    <div class="tab-item" onclick="switchPage(1)">
+      <div class="tab-icon">🎨</div>
+      <div class="tab-name">主题</div>
+    </div>
+    <div class="tab-item" onclick="switchPage(2)">
+      <div class="tab-icon">⭐</div>
+      <div class="tab-name">空间</div>
+    </div>
+  </div>
+
+  <!-- 添加角色弹窗 -->
+  <div class="modal" id="add-modal">
+    <div class="modal-backdrop" onclick="closeAddModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>添加角色</span>
+        <button class="close-btn" onclick="closeAddModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="add-options">
+          <div class="add-option" onclick="importPNGCard()">
+            <div class="option-icon">🖼️</div>
+            <div class="option-text">导入PNG角色卡</div>
+          </div>
+          <div class="add-option" onclick="importJSONCard()">
+            <div class="option-icon">📄</div>
+            <div class="option-text">导入JSON角色卡</div>
+          </div>
+          <div class="add-option" onclick="showManualForm()">
+            <div class="option-icon">✏️</div>
+            <div class="option-text">手动创建</div>
+          </div>
+          <div class="add-option" onclick="showQIDSearch()">
+            <div class="option-icon">🔍</div>
+            <div class="option-text">通过QID添加MoMo好友</div>
+          </div>
+        </div>
+
+        <div id="qid-search-form" style="display:none;">
+          <div class="form-group">
+            <label>输入QID（6位数字）</label>
+            <input type="text" id="qid-input" placeholder="例如：123456" maxlength="6" pattern="[0-9]*" inputmode="numeric">
+          </div>
+          <button class="save-btn" onclick="searchMomoByQID()">搜索并添加</button>
+        </div>
+        
+        <div id="manual-form" style="display:none;">
+          <div class="form-group">
+            <label>头像</label>
+            <div class="avatar-upload" onclick="document.getElementById('avatar-input').click()">
+              <div class="avatar-preview" id="avatar-preview"><span>点击上传</span></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>角色名称 *</label>
+            <input type="text" id="char-name" placeholder="输入角色名">
+          </div>
+          <div class="form-group">
+            <label>个性签名</label>
+            <input type="text" id="char-signature" placeholder="一句话介绍">
+          </div>
+          <div class="form-group">
+            <label>角色设定</label>
+            <textarea id="char-description" rows="4" placeholder="角色的背景、性格等"></textarea>
+          </div>
+          <button class="save-btn" onclick="saveCharacter()">创建角色</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 颜色选择器弹窗 -->
+  <div class="modal" id="color-picker-modal">
+    <div class="modal-backdrop" onclick="closeColorPicker()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="color-picker-title">选择颜色</span>
+        <button class="close-btn" onclick="closeColorPicker()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="color-presets" id="color-presets"></div>
+        <div class="custom-color">
+          <input type="color" id="custom-color-input" value="#12B7F5">
+          <span>自定义颜色</span>
+        </div>
+        <button class="save-btn" onclick="applyColor()">应用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 头像框选择弹窗 -->
+  <div class="modal" id="frame-picker-modal">
+    <div class="modal-backdrop" onclick="closeFramePicker()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>选择头像框</span>
+        <button class="close-btn" onclick="closeFramePicker()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="frame-grid" id="frame-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 壁纸选择弹窗 -->
+  <div class="modal" id="wallpaper-modal">
+    <div class="modal-backdrop" onclick="closeWallpaperModal()"></div>
+    <div class="modal-content wallpaper-modal-content">
+      <div class="modal-header">
+        <span>主界面壁纸</span>
+        <button class="close-btn" onclick="closeWallpaperModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="wallpaper-actions">
+          <div class="wallpaper-action" onclick="document.getElementById('wallpaper-input').click()">
+            <div class="action-icon">📁</div>
+            <div class="action-text">添加新壁纸</div>
+          </div>
+          <div class="wallpaper-action" onclick="removeWallpaper()">
+            <div class="action-icon">🗑️</div>
+            <div class="action-text">移除壁纸</div>
+          </div>
+        </div>
+        <div class="wallpaper-library" id="wallpaper-library"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义CSS弹窗 -->
+  <div class="modal" id="css-modal">
+    <div class="modal-backdrop" onclick="closeCSSModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>自定义CSS</span>
+        <button class="close-btn" onclick="closeCSSModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="custom-css-input" rows="10" placeholder="输入自定义CSS..."></textarea>
+        <div class="btn-row">
+          <button class="btn-secondary" onclick="previewCSS()">预览</button>
+          <button class="save-btn" onclick="saveCSS()">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隐藏的文件输入 -->
+  <input type="file" id="png-input" accept=".png" style="display:none" onchange="handlePNGImport(this)">
+  <input type="file" id="json-input" accept=".json" style="display:none" onchange="handleJSONImport(this)">
+  <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="previewAvatar(this)">
+  <input type="file" id="wallpaper-input" accept="image/*" style="display:none" onchange="addWallpaper(this)">
+
+  <!-- chat.js 中已定义 goBack() -->
+  <script src="scripts/chat.js"></script>
+</body>
+</html>

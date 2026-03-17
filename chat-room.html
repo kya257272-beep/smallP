@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>聊天</title>
+  <link rel="stylesheet" href="styles/chat-room.css">
+  <style id="custom-chat-css"></style>
+</head>
+<body class="chatroom-body" id="chatroom-body">
+
+  <!-- 顶栏 -->
+  <div class="chatroom-topbar">
+    <button class="topbar-btn" onclick="goBack()">←</button>
+    <div class="topbar-center" onclick="showCharacterStatus()">
+      <div class="char-name" id="topbar-name">加载中...</div>
+      <div class="char-status" id="topbar-status">
+        <span class="status-dot online"></span>
+        <span>在线</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" onclick="openMoreActions()">+</button>
+      <button class="topbar-btn" onclick="openSettingsModal()">⋮</button>
+    </div>
+  </div>
+
+  <!-- 消息区域 -->
+  <div class="chat-messages" id="chat-messages"></div>
+
+  <!-- 输入区域 -->
+  <div class="chat-input-area">
+    <button class="input-btn" onclick="document.getElementById('image-input').click()">🖼️</button>
+    <textarea id="message-input" rows="1" placeholder="输入消息..."></textarea>
+    <button class="send-btn" onclick="sendMessage()">发送</button>
+  </div>
+
+  <!-- 隐藏的文件输入 -->
+  <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)">
+  <input type="file" id="user-avatar-input" accept="image/*" style="display:none" onchange="handleUserAvatarUpload(this)">
+  <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="setChatBackground(this)">
+  <input type="file" id="image-input" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+
+  <!-- 设置弹窗 -->
+  <div class="modal" id="settings-modal">
+    <div class="modal-backdrop" onclick="closeSettingsModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>设置</span>
+        <button class="close-btn" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-list">
+          <div class="settings-item" onclick="openEditCharacter()">
+            <span class="settings-icon">✏️</span>
+            <span class="settings-text">编辑角色设定</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openUserSettings()">
+            <span class="settings-icon">👤</span>
+            <span class="settings-text">用户设定</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openPresetSettings()">
+            <span class="settings-icon">🎭</span>
+            <span class="settings-text">预设/Prompt</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openWorldBook()">
+            <span class="settings-icon">📚</span>
+            <span class="settings-text">世界书</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openAvatarFrameSettings()">
+            <span class="settings-icon">💠</span>
+            <span class="settings-text">头像框</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openChatBackground()">
+            <span class="settings-icon">🖼️</span>
+            <span class="settings-text">聊天背景</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openContextSettings()">
+            <span class="settings-icon">📊</span>
+            <span class="settings-text">上下文条数</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="summarizeContext()">
+            <span class="settings-icon">📝</span>
+            <span class="settings-text">总结上下文</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="openGroupChatModal()">
+            <span class="settings-icon">👥</span>
+            <span class="settings-text">创建群聊</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="goOfflineMode()">
+            <span class="settings-icon">📴</span>
+            <span class="settings-text">离线模式</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item" onclick="clearChatHistory()">
+            <span class="settings-icon">🗑️</span>
+            <span class="settings-text">清空聊天记录</span>
+            <span class="settings-arrow">›</span>
+          </div>
+          <div class="settings-item danger" onclick="deleteCharacter()">
+            <span class="settings-icon">❌</span>
+            <span class="settings-text">删除角色</span>
+            <span class="settings-arrow">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 角色状态弹窗 -->
+  <div class="modal status-modal" id="character-status-modal">
+    <div class="modal-backdrop" onclick="closeCharacterStatus()"></div>
+    <div class="modal-content">
+      <div class="floating-decorations">
+        <span class="floating-heart">💕</span>
+        <span class="floating-heart">💗</span>
+        <span class="floating-heart">💖</span>
+        <span class="floating-heart">❤️</span>
+        <span class="floating-heart">💘</span>
+        <span class="floating-bow">🎀</span>
+        <span class="floating-bow">🎀</span>
+        <span class="floating-star">✨</span>
+        <span class="floating-star">⭐</span>
+        <span class="floating-star">🌟</span>
+      </div>
+      <div class="modal-header">
+        <span>💫 角色状态</span>
+        <button class="close-btn" onclick="closeCharacterStatus()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="status-card">
+          <div class="status-avatar-container">
+            <div class="status-avatar" id="status-avatar"></div>
+          </div>
+          <div class="status-name" id="status-name">角色名</div>
+          <div class="status-signature" id="status-signature">个性签名</div>
+          
+          <div class="friendship-wave-section">
+            <div class="wave-icon" id="wave-icon">🌊</div>
+            <div class="wave-info">
+              <span class="wave-level" id="wave-level">初识</span>
+              <span class="wave-days" id="wave-days">连续聊天 0 天</span>
+            </div>
+          </div>
+          
+          <div class="status-info-grid">
+            <div class="status-item">
+              <span class="status-label">💕 好感度</span>
+              <div class="affection-bar">
+                <div class="affection-fill" id="affection-fill" style="width:50%"></div>
+              </div>
+              <span class="status-value" id="status-affection">50</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">😊 心情值</span>
+              <div class="mood-bar">
+                <div class="mood-fill happy" id="mood-fill" style="width:70%"></div>
+              </div>
+              <span class="status-value" id="status-mood">70</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">👗 当前衣着</span>
+              <span class="status-value" id="status-outfit">日常</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">📍 当前地点</span>
+              <span class="status-value" id="status-location">未知</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">💭 内心想法</span>
+              <span class="status-value thought" id="status-thought">（未知）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑弹窗 -->
+  <div class="modal" id="edit-modal">
+    <div class="modal-backdrop" onclick="closeEditModal()"></div>
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header">
+        <span id="edit-modal-title">编辑</span>
+        <button class="close-btn" onclick="closeEditModal()">✕</button>
+      </div>
+      <div class="modal-body" id="edit-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 更多操作弹窗 -->
+  <div class="modal" id="more-actions-modal">
+    <div class="modal-backdrop" onclick="closeMoreActions()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>更多操作</span>
+        <button class="close-btn" onclick="closeMoreActions()">✕</button>
+      </div>
+      <div class="more-actions-grid">
+        <div class="action-item" onclick="regenerateReply()">
+          <div class="action-icon">🔄</div>
+          <span class="action-name">重新生成</span>
+        </div>
+        <div class="action-item" onclick="continueGenerate()">
+          <div class="action-icon">➕</div>
+          <span class="action-name">继续生成</span>
+        </div>
+        <div class="action-item" onclick="sendImage()">
+          <div class="action-icon">🖼️</div>
+          <span class="action-name">发送图片</span>
+        </div>
+        <div class="action-item" onclick="editLastMessage()">
+          <div class="action-icon">✏️</div>
+          <span class="action-name">编辑消息</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 群聊创建弹窗 -->
+  <div class="modal" id="group-chat-modal">
+    <div class="modal-backdrop" onclick="closeGroupChatModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>创建群聊</span>
+        <button class="close-btn" onclick="closeGroupChatModal()">✕</button>
+      </div>
+      <div class="modal-body" id="group-chat-body"></div>
+    </div>
+  </div>
+
+  <!-- 脚本 -->
+  <script src="scripts/chat.js"></script>
+  <script src="scripts/chat-room/utils.js"></script>
+  <script src="scripts/chat-room/ui.js"></script>
+  <script src="scripts/chat-room/ai.js"></script>
+  <script src="scripts/chat-room/core.js"></script>
+  <script src="scripts/chat-room/settings.js"></script>
+  <script src="scripts/chat-room/summary.js"></script>
+  <script src="scripts/chat-room/group.js"></script>
+  <script src="scripts/chat-room/index.js"></script>
+</body>
+</html>

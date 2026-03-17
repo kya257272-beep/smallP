@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>壁纸与主题</title>
+  <link rel="stylesheet" href="styles/wallpaper.css">
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <button class="back-btn" id="back-btn" aria-label="返回">←</button>
+    <div class="title">壁纸与主题</div>
+  </header>
+
+  <!-- 主体内容 -->
+  <main class="wp-main">
+    <div class="wp-card">
+      <!-- 标签页切换 -->
+      <div class="wp-tabs">
+        <button class="wp-tab active" data-tab="theme">🎨 预设主题</button>
+        <button class="wp-tab" data-tab="wallpaper">🖼️ 自定义壁纸</button>
+        <button class="wp-tab" data-tab="color">🎀 按钮颜色</button>
+        <button class="wp-tab" data-tab="weather">🌤️ 天气特效</button>
+        <button class="wp-tab" data-tab="icon">✨ 图标自定义</button>
+        <button class="wp-tab" data-tab="css">💻 自定义CSS</button>
+      </div>
+
+      <!-- 预设主题 -->
+      <div class="wp-content active" id="tab-theme">
+        <h3>选择预设主题</h3>
+        <div class="theme-grid">
+          <div class="theme-item" data-theme="pink">
+            <div class="theme-preview pink"></div>
+            <span>粉色</span>
+          </div>
+          <div class="theme-item" data-theme="blue">
+            <div class="theme-preview blue"></div>
+            <span>蓝色</span>
+          </div>
+          <div class="theme-item" data-theme="green">
+            <div class="theme-preview green"></div>
+            <span>绿色</span>
+          </div>
+          <div class="theme-item" data-theme="yellow">
+            <div class="theme-preview yellow"></div>
+            <span>黄色</span>
+          </div>
+          <div class="theme-item" data-theme="purple">
+            <div class="theme-preview purple"></div>
+            <span>紫色</span>
+          </div>
+          <div class="theme-item" data-theme="black">
+            <div class="theme-preview black"></div>
+            <span>黑色</span>
+          </div>
+        </div>
+        <p class="wp-hint">点击主题即可应用，将同时设置壁纸和按钮颜色</p>
+      </div>
+
+      <!-- 自定义壁纸 -->
+      <div class="wp-content" id="tab-wallpaper">
+        <h3>上传自定义壁纸</h3>
+        <div class="wp-upload-area" id="wp-upload-area">
+          <div class="upload-icon">📁</div>
+          <p>点击或拖拽图片到此处上传</p>
+          <p class="upload-hint">支持 JPG、PNG、GIF、WebP 格式</p>
+        </div>
+        <input type="file" id="wp-file-input" accept="image/*" style="display:none;">
+        
+        <div class="wp-url-section">
+          <h4>或输入图片URL</h4>
+          <div class="url-input-group">
+            <input type="url" id="wp-url-input" placeholder="https://example.com/image.jpg">
+            <button id="wp-url-apply" class="btn-small">应用</button>
+          </div>
+        </div>
+        
+        <div class="wp-saved-section">
+          <h4>已保存的壁纸</h4>
+          <p id="wp-empty-hint" class="wp-hint">暂无保存的壁纸</p>
+          <div class="wp-saved-list" id="wp-saved-list"></div>
+        </div>
+        
+        <div class="wp-actions">
+          <button id="reset-wallpaper-btn" class="btn-secondary">🔄 重置壁纸</button>
+        </div>
+      </div>
+
+      <!-- 按钮颜色 -->
+      <div class="wp-content" id="tab-color">
+        <h3>自定义按钮颜色</h3>
+        <div class="color-grid">
+          <div class="color-item" data-color="#f8cbd0" style="background:#f8cbd0;"></div>
+          <div class="color-item" data-color="#a7c8f2" style="background:#a7c8f2;"></div>
+          <div class="color-item" data-color="#b8d6a2" style="background:#b8d6a2;"></div>
+          <div class="color-item" data-color="#f7d26d" style="background:#f7d26d;"></div>
+          <div class="color-item" data-color="#c3b0e6" style="background:#c3b0e6;"></div>
+          <div class="color-item" data-color="#333333" style="background:#333333;"></div>
+          <div class="color-item" data-color="#e57373" style="background:#e57373;"></div>
+          <div class="color-item" data-color="#64b5f6" style="background:#64b5f6;"></div>
+          <div class="color-item" data-color="#81c784" style="background:#81c784;"></div>
+          <div class="color-item" data-color="#ffb74d" style="background:#ffb74d;"></div>
+          <div class="color-item" data-color="#ba68c8" style="background:#ba68c8;"></div>
+          <div class="color-item" data-color="#4dd0e1" style="background:#4dd0e1;"></div>
+        </div>
+        
+        <div class="custom-color-section">
+          <h4>自定义颜色</h4>
+          <div class="custom-color-input">
+            <input type="color" id="custom-color-picker" value="#f8cbd0">
+            <input type="text" id="custom-color-hex" placeholder="#f8cbd0" maxlength="7">
+            <button id="apply-custom-color" class="btn-small">应用</button>
+          </div>
+        </div>
+        
+        <div class="wp-actions">
+          <button id="reset-color-btn" class="btn-secondary">🔄 重置颜色</button>
+        </div>
+      </div>
+
+      <!-- 天气特效 -->
+      <div class="wp-content" id="tab-weather">
+        <h3>天气特效设置</h3>
+        
+        <!-- 总开关 -->
+        <div class="weather-toggle-section">
+          <label class="toggle-label">
+            <input type="checkbox" id="weather-enabled-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="weather-toggle-status" class="weather-toggle-status">已启用</span>
+        </div>
+        
+        <!-- 天气类型选择 -->
+        <div class="weather-types-section">
+          <h4>选择天气类型</h4>
+          <div class="weather-grid" id="weather-grid">
+            <div class="weather-item" data-weather="sunny">
+              <div class="weather-icon">☀️</div>
+              <span>晴天</span>
+            </div>
+            <div class="weather-item" data-weather="cloudy">
+              <div class="weather-icon">☁️</div>
+              <span>多云</span>
+            </div>
+            <div class="weather-item" data-weather="rain-light">
+              <div class="weather-icon">🌦️</div>
+              <span>小雨</span>
+            </div>
+            <div class="weather-item" data-weather="rain-heavy">
+              <div class="weather-icon">🌧️</div>
+              <span>大雨</span>
+            </div>
+            <div class="weather-item" data-weather="fog">
+              <div class="weather-icon">🌫️</div>
+              <span>雾天</span>
+            </div>
+            <div class="weather-item" data-weather="snow">
+              <div class="weather-icon">❄️</div>
+              <span>下雪</span>
+            </div>
+            <div class="weather-item" data-weather="rainbow">
+              <div class="weather-icon">🌈</div>
+              <span>彩虹</span>
+            </div>
+            <div class="weather-item" data-weather="stars">
+              <div class="weather-icon">🌙</div>
+              <span>星空</span>
+            </div>
+            <div class="weather-item" data-weather="none">
+              <div class="weather-icon">🚫</div>
+              <span>关闭</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 性能模式 -->
+        <div class="weather-performance-section">
+          <h4>性能模式</h4>
+          <p class="wp-hint">如果感觉卡顿，可以降低粒子数量</p>
+          <div class="performance-buttons">
+            <button class="perf-btn" data-perf="low">低 (省电)</button>
+            <button class="perf-btn active" data-perf="normal">中 (平衡)</button>
+            <button class="perf-btn" data-perf="high">高 (华丽)</button>
+          </div>
+        </div>
+        
+        <!-- 自动切换 -->
+        <div class="weather-auto-section">
+          <div class="auto-switch-row">
+            <span>自动随机切换天气</span>
+            <label class="toggle-label small">
+              <input type="checkbox" id="weather-auto-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="wp-hint">开启后每4小时自动随机更换天气</p>
+        </div>
+      </div>
+
+      <!-- 图标自定义 -->
+      <div class="wp-content" id="tab-icon">
+        <h3>自定义应用图标</h3>
+        <p class="wp-hint">点击图标选择自定义图片</p>
+        
+        <div class="icon-style-section">
+          <span>图标样式：</span>
+          <button class="icon-style-btn active" data-style="cover">填充</button>
+          <button class="icon-style-btn" data-style="contain">适应</button>
+        </div>
+        
+        <div class="icon-grid" id="icon-grid"></div>
+        
+        <input type="file" id="icon-file-input" accept="image/*" style="display:none;">
+        
+        <div class="icon-url-section">
+          <h4>或输入图标URL</h4>
+          <div class="url-input-group">
+            <input type="url" id="icon-url-input" placeholder="https://example.com/icon.png">
+            <button id="icon-url-apply" class="btn-small">应用</button>
+          </div>
+        </div>
+        
+        <div class="wp-actions">
+          <button id="reset-all-icons" class="btn-secondary">🔄 重置所有图标</button>
+        </div>
+      </div>
+
+      <!-- 自定义CSS -->
+      <div class="wp-content" id="tab-css">
+        <h3>自定义CSS样式</h3>
+        
+        <div class="css-toggle-section">
+          <label class="toggle-label">
+            <input type="checkbox" id="css-enabled-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="css-toggle-status" class="css-toggle-status">已禁用</span>
+        </div>
+        
+        <div class="css-presets-section">
+          <h4>CSS预设</h4>
+          <div class="css-presets-list" id="css-presets-list"></div>
+          <button id="new-css-preset" class="btn-small">➕ 新建预设</button>
+        </div>
+        
+        <div class="css-editor-box" id="css-editor-box">
+          <div class="css-editor-header">
+            <input type="text" id="css-preset-name" placeholder="预设名称">
+          </div>
+          <textarea id="custom-css-input" placeholder="/* 在此输入自定义CSS */
+body {
+  /* 示例 */
+}"></textarea>
+          <div class="css-editor-actions">
+            <button id="save-css-preset" class="btn-small">💾 保存预设</button>
+            <button id="cancel-css-edit" class="btn-small btn-secondary">取消</button>
+          </div>
+        </div>
+        
+        <div class="css-quick-presets">
+          <h4>快速插入</h4>
+          <div class="css-preset-item" data-css="body { filter: blur(2px); }">模糊背景</div>
+          <div class="css-preset-item" data-css="body { filter: grayscale(100%); }">黑白模式</div>
+          <div class="css-preset-item" data-css="body { filter: sepia(50%); }">复古滤镜</div>
+          <div class="css-preset-item" data-css="* { border-radius: 0 !important; }">方角模式</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="scripts/frame-helper.js"></script>
+  <script src="scripts/theme.js"></script>
+  <script src="scripts/wallpaper.js"></script>
+  <script>
+    // 返回按钮处理
+    document.getElementById('back-btn').addEventListener('click', function() {
+      if (window.ShellMusic && window.ShellMusic.isInShell()) {
+        window.ShellMusic.navigate('index.html');
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>

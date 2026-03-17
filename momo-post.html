@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>帖子详情 - MoMo</title>
+<link rel="stylesheet" href="styles/momo-post.css">
+</head>
+<body>
+
+  <!-- 顶部栏 -->
+  <header class="post-header">
+    <button class="back-btn" id="back-btn">←</button>
+    <h1 class="header-title">帖子详情</h1>
+    <button class="theme-toggle" id="theme-toggle">🌙</button>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="post-main">
+    <!-- 帖子内容区 -->
+    <article class="post-detail" id="post-detail">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p>正在加载帖子...</p>
+      </div>
+    </article>
+
+    <!-- 评论区 -->
+    <section class="comments-section" id="comments-section">
+      <h2 class="comments-title">评论 <span id="comment-count">0</span></h2>
+      <div class="comments-list" id="comments-list">
+        <div class="loading-comments">
+          <div class="spinner small"></div>
+          <p>正在加载评论...</p>
+        </div>
+      </div>
+      <div class="load-more-comments" id="load-more-comments" style="display: none;">
+        <button class="load-more-btn" id="load-more-btn">加载更多评论</button>
+      </div>
+      <div class="end-message" id="end-message" style="display: none;">
+        <p>已经到底啦~</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- 底部操作栏 -->
+  <footer class="post-footer">
+    <div class="footer-actions">
+      <button class="footer-btn" id="like-btn">
+        <span class="btn-icon">♡</span>
+        <span class="btn-text" id="like-text">点赞</span>
+      </button>
+      <button class="footer-btn" id="collect-btn">
+        <span class="btn-icon">☆</span>
+        <span class="btn-text">收藏</span>
+      </button>
+      <button class="footer-btn" id="share-btn">
+        <span class="btn-icon">→</span>
+        <span class="btn-text">分享</span>
+      </button>
+    </div>
+    <div class="comment-input-area">
+      <input type="text" placeholder="发表你的评论..." id="comment-input">
+      <button class="send-btn" id="send-btn">发送</button>
+    </div>
+  </footer>
+
+  <!-- Toast提示 -->
+  <div class="toast" id="toast"></div>
+
+<script src="scripts/momo-post.js"></script>
+</body>
+</html>

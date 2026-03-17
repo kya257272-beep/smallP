@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>音乐播放器</title>
+  <link rel="stylesheet" href="styles/music.css">
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar" role="banner">
+    <button class="back-btn" aria-label="返回" onclick="window.location.href='index.html'">←</button>
+    <div class="title">音乐</div>
+  </header>
+
+  <!-- 播放器主体 -->
+  <main class="music-player" role="main">
+    <section class="player-card" aria-label="音乐播放器卡片">
+      <div class="player-header">
+        <h2>🎵 音乐播放器</h2>
+      </div>
+
+      <div class="player-body">
+        <!-- 当前曲目信息 -->
+        <div class="track-info">
+          <p id="track-title">选择音乐播放</p>
+          <p id="track-artist" class="track-artist"></p>
+        </div>
+
+        <!-- 隐藏原生audio -->
+        <audio id="audio-player" style="display:none;"></audio>
+
+        <!-- 自定义进度条 -->
+        <div class="progress-container">
+          <span id="current-time" class="time-display">0:00</span>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-handle" id="progress-handle"></div>
+          </div>
+          <span id="total-time" class="time-display">0:00</span>
+        </div>
+
+        <!-- 音量控制 -->
+        <div class="volume-container">
+          <span class="volume-icon" id="volume-icon">🔊</span>
+          <input type="range" id="volume-slider" min="0" max="100" value="80" class="volume-slider">
+          <span id="volume-value" class="volume-value">80%</span>
+        </div>
+
+        <!-- 播放控制 -->
+        <div class="controls" role="group" aria-label="播放控制">
+          <button id="prev-track" type="button" title="上一首">⏮️</button>
+          <button id="play-pause" type="button" class="play-btn" title="播放/暂停">▶️</button>
+          <button id="next-track" type="button" title="下一首">⏭️</button>
+        </div>
+
+        <!-- 播放模式选择 -->
+        <div class="play-mode-container">
+          <label>播放模式：</label>
+          <select id="play-mode" class="play-mode-select">
+            <option value="list">列表顺序</option>
+            <option value="loop">列表循环</option>
+            <option value="single">单曲循环</option>
+            <option value="random">随机播放</option>
+            <option value="custom">自定义顺序</option>
+          </select>
+        </div>
+
+        <!-- 悬浮球开关 -->
+        <div class="float-toggle-container">
+          <button id="float-toggle-btn" type="button" class="float-toggle-btn">🎵 悬浮球: 关</button>
+        </div>
+
+        <!-- 添加音乐按钮组 -->
+        <div class="add-music-controls">
+          <div class="file-input" aria-label="导入本地音乐">
+            <input type="file" id="file-input" accept=".mp3,.wav,.ogg,.flac,.m4a,.aac,audio/*" multiple />
+            <label for="file-input">📁 导入本地音乐</label>
+          </div>
+          <button id="add-url-btn" type="button" class="url-btn">🔗 添加网络音乐</button>
+        </div>
+
+        <!-- 播放列表 -->
+        <div class="playlist-section">
+          <div class="playlist-header">
+            <h3>📋 播放列表 (<span id="playlist-count">0</span>首)</h3>
+            <div class="playlist-actions">
+              <button id="clear-all-btn" type="button" class="small-btn">清空列表</button>
+              <button id="save-order-btn" type="button" class="small-btn" style="display:none;">保存顺序</button>
+            </div>
+          </div>
+          <p id="drag-hint" class="drag-hint" style="display:none;">💡 拖拽歌曲可调整顺序</p>
+          <ul id="playlist" class="playlist-ul"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="scripts/theme.js"></script>
+  <script src="scripts/music.js"></script>
+</body>
+</html>

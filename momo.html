@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>MoMo</title>
+<link rel="stylesheet" href="styles/momo.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="momo-header">
+    <button class="header-back" id="back-btn">←</button>
+    <span class="header-title">MoMo</span>
+    <div class="header-spacer"></div>
+    <div class="header-actions">
+      <button class="header-btn" id="theme-toggle">🌙</button>
+    </div>
+  </header>
+
+  <!-- Search Bar -->
+  <div class="search-bar-wrap">
+    <div class="search-bar">
+      <span class="search-bar-icon">🔍</span>
+      <input type="text" placeholder="搜索感兴趣的内容..." id="search-input">
+      <button class="search-btn" id="search-btn">搜索</button>
+    </div>
+  </div>
+
+  <!-- Tag Filter -->
+  <div class="tag-filter-area" id="tag-filter-area">
+    <div class="tag-chip active" data-tag="all">推荐</div>
+    <div class="tag-chip" data-tag="hot">热门</div>
+    <div class="tag-chip" data-tag="funny">搞笑</div>
+    <div class="tag-chip" data-tag="love">恋爱</div>
+    <div class="tag-chip" data-tag="game">游戏</div>
+    <div class="tag-chip" data-tag="anime">动漫</div>
+    <div class="tag-chip" data-tag="tech">科技</div>
+    <div class="tag-chip" data-tag="emo">深夜emo</div>
+    <div class="tag-chip" data-tag="custom" id="tag-custom-btn">+ 自定义</div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="momo-main" id="main-content">
+
+    <!-- Home Page -->
+    <section class="page-section active" id="page-home">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-text">点击刷新按钮，生成你的专属内容</div>
+        <button class="refresh-fab" id="refresh-btn">🔄 刷新</button>
+      </div>
+      <div class="loading-indicator hidden" id="loading-indicator">
+        <div class="spinner"></div>
+        <p>正在生成内容...</p>
+      </div>
+      <div class="waterfall-container hidden" id="waterfall-container"></div>
+      <div class="hidden" id="load-more-wrap" style="padding:12px;text-align:center;">
+        <button class="refresh-fab" id="load-more-btn" style="width:100%;">加载更多</button>
+      </div>
+    </section>
+
+    <!-- Chat Page -->
+    <section class="page-section" id="page-chat">
+      <div class="chat-empty" id="chat-empty">
+        <div class="chat-empty-icon">💬</div>
+        <p>暂无私聊消息</p>
+        <span style="font-size:.82rem;color:var(--momo-text-muted);">去帖主主页发起私聊吧</span>
+      </div>
+      <div class="chat-list" id="chat-list"></div>
+    </section>
+
+    <!-- Chat Interface (hidden by default) -->
+    <div class="chat-interface" id="chat-interface">
+      <div class="chat-header-bar">
+        <button class="chat-back-btn" id="chat-back-btn">←</button>
+        <span class="chat-header-name" id="chat-header-name"></span>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-bar">
+        <input type="text" placeholder="输入消息..." id="chat-msg-input">
+        <button class="chat-send-btn" id="chat-send-btn">发送</button>
+      </div>
+    </div>
+
+    <!-- Profile Page (My) -->
+    <section class="page-section" id="page-profile">
+      <div class="profile-section">
+        <!-- Editable Profile Card -->
+        <div class="profile-card-main" id="profile-card-main">
+          <div class="profile-bg-area" id="profile-bg-area">
+            <div class="profile-bg-hint">点击更换背景</div>
+            <input type="file" id="profile-bg-input" accept="image/*" style="display:none;">
+          </div>
+          <div class="profile-avatar-large" id="profile-avatar-large">👤
+            <div class="profile-avatar-edit-hint">换</div>
+            <input type="file" id="profile-avatar-input" accept="image/*" style="display:none;">
+          </div>
+          <div class="profile-username" id="profile-username" contenteditable="false">MoMo用户</div>
+          <button class="profile-edit-name-btn" id="profile-edit-name-btn">✏️</button>
+          <div class="profile-qid">QID: --</div>
+        </div>
+
+        <!-- My Posts Section -->
+        <div class="settings-group">
+          <div class="settings-group-title">📋 我的帖子</div>
+          <div class="my-posts-list" id="my-posts-list">
+            <div class="my-posts-empty">还没有发布过帖子</div>
+          </div>
+          <button class="publish-entry-btn" id="publish-entry-btn">📝 发布新帖子</button>
+        </div>
+
+        <!-- Image Gen Toggle -->
+        <div class="settings-group">
+          <div class="settings-group-title">🎨 生图设置</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">AI生图</div>
+              <div class="settings-desc">开启后帖子将自动生成配图</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="image-gen-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Custom Style Settings with Presets -->
+        <div class="settings-group">
+          <div class="settings-group-title">✨ 自定义帖子风格</div>
+          <div class="preset-controls">
+            <select id="preset-select" class="preset-select"></select>
+            <button class="preset-btn" id="preset-save-new">＋ 另存</button>
+            <button class="preset-btn preset-btn-danger" id="preset-delete">🗑️</button>
+          </div>
+          <div class="style-form" id="style-form">
+            <div>
+              <label>帖子内容方向</label>
+              <textarea id="style-content" placeholder="例如：校园日常、奇幻冒险、赛博朋克生活..."></textarea>
+            </div>
+            <div>
+              <label>叙事风格</label>
+              <input type="text" id="style-narrative" placeholder="例如：幽默搞笑、悬疑反转、温馨治愈...">
+            </div>
+            <div>
+              <label>讨论主题</label>
+              <input type="text" id="style-topic" placeholder="例如：恋爱、游戏、学习、职场...">
+            </div>
+            <div>
+              <label>每次刷新数量</label>
+              <input type="number" id="style-count" min="1" max="20" value="6" placeholder="1-20">
+            </div>
+            <div>
+              <label>评论数量</label>
+              <input type="number" id="style-comment-count" min="5" max="50" value="15" placeholder="5-50">
+            </div>
+            <div>
+              <label>图片风格（开启生图时生效）</label>
+              <input type="text" id="style-image" placeholder="例如：动漫风、写实风、像素风...">
+            </div>
+            <button class="style-ai-btn" id="style-ai-btn">🤖 AI帮我完善描述</button>
+            <button class="style-save-btn" id="style-save-btn">💾 保存风格设置</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- User Profile Overlay -->
+  <div class="user-profile-overlay" id="user-profile-overlay">
+    <div class="user-profile-banner" id="user-profile-banner">
+      <button class="user-profile-back" id="user-profile-back">←</button>
+      <div class="user-profile-info">
+        <div class="user-profile-avatar" id="user-profile-avatar"></div>
+        <div class="user-profile-names">
+          <div class="user-profile-name" id="user-profile-name"></div>
+          <div class="user-profile-qid" id="user-profile-qid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="user-profile-body">
+      <div class="user-profile-bio" id="user-profile-bio"></div>
+      <div class="user-profile-posts-title">TA的帖子</div>
+      <div class="user-profile-posts" id="user-profile-posts">
+        <div class="loading-indicator">
+          <div class="spinner"></div>
+          <p>加载中...</p>
+        </div>
+      </div>
+    </div>
+    <div class="user-profile-actions">
+      <button class="user-action-btn danger" id="user-block-btn">🚫 拉黑</button>
+      <button class="user-action-btn secondary" id="user-chat-btn">💬 私聊</button>
+      <button class="user-action-btn primary" id="user-friend-btn">➕ 加好友</button>
+    </div>
+  </div>
+
+  <!-- Comment Drawer -->
+  <div class="comment-drawer" id="comment-drawer">
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <h3>评论 <span id="drawer-comment-count">0</span></h3>
+        <button class="drawer-close" id="drawer-close">×</button>
+      </div>
+      <div class="drawer-comments" id="drawer-comments">
+        <div class="loading-indicator">
+          <div class="spinner"></div>
+          <p>加载评论中...</p>
+        </div>
+      </div>
+      <div class="drawer-input">
+        <input type="text" placeholder="发表你的评论..." id="drawer-input">
+        <button class="drawer-send" id="drawer-send">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag Custom Modal -->
+  <div class="tag-modal" id="tag-custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>自定义标签筛选</h3>
+        <button class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:14px;">
+          <input type="text" id="new-custom-tag" placeholder="输入标签，按回车添加" style="width:100%;padding:10px 14px;border:1px solid var(--momo-border);border-radius:20px;background:var(--momo-search-bg);color:var(--momo-text);font-size:.88rem;outline:none;">
+        </div>
+        <div class="tag-list" id="custom-tag-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn secondary" id="clear-custom-tags">清除</button>
+        <button class="modal-btn" id="apply-custom-tags">应用筛选</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Publish Post Overlay -->
+  <div class="publish-overlay" id="publish-overlay">
+    <div class="publish-container">
+      <div class="publish-header">
+        <button class="publish-close" id="publish-close">×</button>
+        <span class="publish-title">发布帖子</span>
+        <button class="publish-submit" id="publish-submit">发布</button>
+      </div>
+      <div class="publish-body">
+        <input type="text" class="publish-title-input" id="publish-post-title" placeholder="标题（必填）">
+        <textarea class="publish-content-input" id="publish-post-content" placeholder="分享你的想法..." rows="6"></textarea>
+        <div class="publish-image-area">
+          <button class="publish-add-image" id="publish-add-image">🖼️ 添加图片</button>
+          <input type="file" id="publish-image-input" accept="image/*" style="display:none;">
+          <div class="publish-image-preview" id="publish-image-preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Bottom Navbar -->
+  <nav class="momo-navbar">
+    <button class="nav-item active" data-page="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">首页</span>
+    </button>
+    <button class="nav-item" data-page="chat">
+      <span class="nav-icon">💬</span>
+      <span class="nav-label">私聊</span>
+    </button>
+    <button class="nav-item" data-page="profile">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">我的</span>
+    </button>
+  </nav>
+
+<script src="scripts/momo.js"></script>
+</body>
+</html>

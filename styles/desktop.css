@@ -1,0 +1,334 @@
+/* ========== 多页桌面系统 ========== */
+
+.desktop-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+  padding-bottom: 30px;
+}
+
+.pages-wrapper {
+  display: flex;
+  flex: 1;
+  transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  touch-action: pan-y;
+  height: 100%;
+}
+
+.desktop-page {
+  min-width: 100%;
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 20px 20px 20px;
+  box-sizing: border-box;
+}
+
+.desktop-page .app-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 30px;
+  width: 100%;
+  max-width: 360px;
+  justify-items: center;
+  align-content: end;
+  min-height: 350px;
+}
+
+
+/* 页面指示器 */
+.page-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 0;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.indicator.active {
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.indicator:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ========== 拖拽样式 ========== */
+
+.desktop-page .app-icon {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.desktop-page .app-icon.dragging {
+  opacity: 0.4;
+  transform: scale(0.9);
+}
+
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  display: none;
+  transform: translate(-50%, -50%) scale(1.15);
+  transition: none;
+}
+
+.drag-ghost.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-ghost .icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+}
+
+.drag-ghost .main-icon {
+  font-size: 2.4rem;
+}
+
+.drag-ghost .app-name {
+  color: #fff;
+  font-size: 0.85rem;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 拖拽占位提示 */
+.desktop-page .app-icon.drop-target::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 22px;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* 空位占位符 */
+.app-placeholder {
+  width: 80px;
+  height: 110px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.app-placeholder.visible {
+  opacity: 1;
+}
+
+/* ========== 编辑模式 ========== */
+
+body.edit-mode .desktop-page .app-icon {
+  animation: wiggle 0.3s ease-in-out infinite;
+}
+
+body.edit-mode .desktop-page .app-icon:nth-child(even) {
+  animation-delay: 0.15s;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+/* 删除按钮 */
+.desktop-page .app-icon .delete-btn {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 22px;
+  height: 22px;
+  background: #ff4757;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  display: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.edit-mode .desktop-page .app-icon .delete-btn {
+  display: block;
+}
+
+/* ========== 图标样式继承 ========== */
+
+.desktop-page .icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.12);
+  transition: transform .2s ease, background .22s ease;
+  background: linear-gradient(135deg,#ff9a9e 0%,#fad0c4 100%);
+}
+
+.desktop-page .icon-wrapper:hover {
+  transform: scale(1.08);
+}
+
+.desktop-page .icon-wrapper:active {
+  transform: scale(0.95);
+}
+
+.desktop-page .main-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.desktop-page .app-name {
+  color: #fff;
+  font-size: 0.85rem;
+  text-shadow: 0 3px 8px rgba(0,0,0,0.18);
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========== 响应式 ========== */
+
+@media (max-width: 375px) {
+  .desktop-page .app-grid {
+    max-width: 280px;
+    gap: 14px 18px;
+  }
+  
+  .desktop-page .icon-wrapper {
+    width: 65px;
+    height: 65px;
+    border-radius: 14px;
+  }
+  
+  .desktop-page .main-icon {
+    font-size: 1.8rem;
+  }
+  
+  .desktop-page .app-name {
+    font-size: 0.75rem;
+    max-width: 65px;
+  }
+  
+  .drag-ghost .icon-wrapper {
+    width: 65px;
+    height: 65px;
+  }
+}
+
+@media (min-width: 769px) {
+  .desktop-page .app-grid {
+    max-width: 420px;
+    gap: 24px 40px;
+  }
+  
+  .desktop-page .icon-wrapper {
+    width: 85px;
+    height: 85px;
+    border-radius: 20px;
+  }
+  
+  .desktop-page .main-icon {
+    font-size: 2.5rem;
+  }
+  
+  .desktop-page .app-name {
+    font-size: 0.9rem;
+  }
+}
+
+/* 平板 */
+@media (min-width: 481px) and (max-width: 768px) {
+  .desktop-page .app-grid {
+    max-width: 380px;
+    gap: 22px 35px;
+  }
+  
+  .desktop-page .icon-wrapper {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* 横屏模式 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .desktop-container {
+    padding-bottom: 15px;
+  }
+  
+  .desktop-page {
+    padding: 10px 20px;
+  }
+  
+  .desktop-page .app-grid {
+    max-width: 400px;
+    gap: 12px 30px;
+    min-height: 200px;
+  }
+  
+  .desktop-page .icon-wrapper {
+    width: 55px;
+    height: 55px;
+  }
+  
+  .desktop-page .main-icon {
+    font-size: 1.6rem;
+  }
+  
+  .desktop-page .app-name {
+    font-size: 0.75rem;
+  }
+  
+  .page-indicators {
+    padding: 8px 0;
+  }
+}

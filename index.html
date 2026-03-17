@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>手机桌面 — 樱花粉</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/desktop.css">
+  
+  <!-- 立即应用保存的主题，防止闪烁 -->
+  <script>
+    (function() {
+      const themeColors = {
+        pink:   { topbar:"#f8cbd0", bg:"images/pink.jpg" },
+        blue:   { topbar:"#a7c8f2", bg:"images/blue.jpg" },
+        green:  { topbar:"#b8d6a2", bg:"images/green.jpg" },
+        yellow: { topbar:"#f7d26d", bg:"images/yellow.jpg" },
+        purple: { topbar:"#c3b0e6", bg:"images/purple.jpg" },
+        black:  { topbar:"#333333", bg:"images/black.jpg" }
+      };
+      
+      const theme = localStorage.getItem('theme') || 'pink';
+      const t = themeColors[theme] || themeColors.pink;
+      
+      document.documentElement.style.setProperty('--topbar-color', t.topbar);
+      
+      const btnColor = localStorage.getItem('buttonColor') || t.topbar;
+      document.documentElement.style.setProperty('--btn-color', btnColor);
+      
+      const customWpId = localStorage.getItem('customWallpaperId');
+      const customWpURL = localStorage.getItem('customWallpaperURL');
+      
+      if (!customWpId && !customWpURL && t.bg) {
+        document.write('<style>body{background-image:url("' + t.bg + '") !important;background-size:cover !important;background-position:center !important;}</style>');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <!-- 樱花飘落 -->
+  <div class="sakura"></div><div class="sakura"></div><div class="sakura"></div><div class="sakura"></div><div class="sakura"></div>
+
+  <!-- 顶部时间/天气 -->
+  <div class="top-section">
+    <div id="clock" class="time">12:00</div>
+    <div id="date" class="date">星期一, 3月 21日</div>
+    <div class="weather-info">
+      <span id="weather-icon">☀️</span>
+      <span id="weather-temp">25°C</span>
+      <div id="weather-desc">晴朗 · 樱花盛开</div>
+    </div>
+  </div>
+
+  <!-- 多页桌面容器 -->
+  <div class="desktop-container">
+    <div class="pages-wrapper" id="pages-wrapper">
+      <div class="desktop-page" data-page="0">
+        <div class="app-grid" id="app-grid-0"></div>
+      </div>
+      <div class="desktop-page" data-page="1">
+        <div class="app-grid" id="app-grid-1"></div>
+      </div>
+      <div class="desktop-page" data-page="2">
+        <div class="app-grid" id="app-grid-2"></div>
+      </div>
+    </div>
+    
+    <div class="page-indicators">
+      <span class="indicator active" data-page="0"></span>
+      <span class="indicator" data-page="1"></span>
+      <span class="indicator" data-page="2"></span>
+    </div>
+  </div>
+
+  <div class="drag-ghost" id="drag-ghost"></div>
+
+  <div id="app-generic" class="app-modal" aria-hidden="true">
+    <div class="backdrop" data-close="true"></div>
+    <div class="panel">
+      <div class="app-topbar"><span id="generic-title">应用</span> <button class="app-close" data-close="true">✕</button></div>
+      <div id="generic-body" class="app-body">应用内容</div>
+    </div>
+  </div>
+  
+  <link rel="stylesheet" href="styles/global-music.css">
+  <canvas id="weather-canvas" aria-hidden="true"></canvas>
+
+  <script src="scripts/main.js"></script>
+  <script src="scripts/desktop.js"></script>
+  <script src="scripts/theme.js"></script>
+  <script src="scripts/wallpaper.js"></script>
+  <script src="scripts/global-music.js"></script>
+  <script src="scripts/frame-helper.js"></script>
+</body>
+</html>

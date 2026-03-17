@@ -1,0 +1,11 @@
+{
+  "apps": [
+    { "id": "api", "name": "API配置", "icon": "🎀", "href": "api-config.html", "page": 0, "position": 0 },
+    { "id": "chat", "name": "QQ", "icon": "🐧", "href": "chat.html", "page": 0, "position": 1 },
+    { "id": "preset", "name": "预设配置", "icon": "📝", "href": "preset.html", "page": 0, "position": 2 },
+    { "id": "music", "name": "音乐", "icon": "🎶", "href": "music.html", "page": 0, "position": 3 },
+    { "id": "wallpaper", "name": "壁纸", "icon": "🎨", "href": "wallpaper.html", "page": 0, "position": 4 },
+    { "id": "worldbook", "name": "世界书", "icon": "📚", "href": "worldbook.html", "page": 0, "position": 5 },
+    { "id": "momo", "name": "momo", "icon": "🌸", "href": "momo.html", "page": 0, "position": 6 }
+  ]
+}

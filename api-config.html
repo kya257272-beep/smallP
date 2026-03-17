@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>API 配置</title>
+<link rel="stylesheet" href="styles/api-config.css">
+<style>
+  /* 顶栏与返回按钮 */
+  .header {
+    position: relative;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  
+  .back-btn {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .back-btn:hover {
+    background: rgba(255,255,255,0.35);
+  }
+
+  /* 信息卡片 */
+  .info-box {
+    background: linear-gradient(135deg, #fff0f3 0%, #fff 100%);
+    border: 1px solid #f8d1db;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .info-box h3 {
+    margin: 0 0 12px 0;
+    color: #e57a9a;
+    font-size: 1rem;
+  }
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  .info-item:last-child {
+    border-bottom: none;
+  }
+  .info-label {
+    color: #666;
+  }
+  .info-value {
+    font-weight: 600;
+    color: #333;
+  }
+  .info-value.balance {
+    color: #4caf50;
+  }
+  .info-value.loading {
+    color: #999;
+  }
+
+  /* 状态文字 */
+  .status { margin-top: 10px; font-size: 0.9rem; }
+  .status.success { color: #4caf50; }
+  .status.error { color: #f44336; }
+
+  /* 已保存配置列表 */
+  .config-list-box {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .config-list-box h3 {
+    margin: 0 0 12px 0;
+    color: #555;
+    font-size: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .config-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .config-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .config-item:hover {
+    border-color: var(--topbar-color, #f8d1db);
+    background: #fff8fa;
+  }
+  .config-item.active {
+    border-color: var(--topbar-color, #f8d1db);
+    background: linear-gradient(135deg, #fff0f3 0%, #fff 100%);
+    box-shadow: 0 2px 8px rgba(248, 203, 208, 0.3);
+  }
+  .config-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .config-item-name {
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .config-item-key {
+    font-size: 0.8rem;
+    color: #999;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .config-item-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: 10px;
+    flex-wrap: wrap;
+  }
+  .config-item-actions button {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    min-width: auto;
+  }
+  .btn-delete {
+    background: #ff6b6b !important;
+  }
+  .btn-delete:hover {
+    background: #ee5a5a !important;
+  }
+  .no-configs {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+    font-size: 0.95rem;
+  }
+
+  /* 链接区域 */
+  .link-box {
+    text-align: center;
+    margin-top: 20px;
+    padding: 14px;
+    background: #f9f9f9;
+    border-radius: 10px;
+  }
+  .link-box a {
+    color: #e57a9a;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .link-box a:hover {
+    text-decoration: underline;
+  }
+
+  .tip-text {
+    margin-top: 18px;
+    color: #888;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  /* 按钮样式补充 */
+  .btn-secondary {
+    background: #666 !important;
+  }
+  .btn-secondary:hover {
+    background: #555 !important;
+  }
+  .btn-small {
+    padding: 6px 14px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* 表单分隔 */
+  .form-section {
+    margin-bottom: 20px;
+  }
+
+  /* 密钥显示/隐藏 */
+  .key-input-wrapper {
+    position: relative;
+  }
+  .key-input-wrapper input {
+    padding-right: 50px;
+  }
+  .toggle-key-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    box-shadow: none;
+  }
+  .toggle-key-btn:hover {
+    color: #666;
+    background: transparent;
+    transform: translateY(-50%);
+  }
+
+  /* Toast提示 */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    z-index: 9999;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* 服务商地址样式 */
+  .api-url-display {
+    font-family: monospace;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  /* ========== 高级参数样式 ========== */
+  .advanced-box {
+    background: linear-gradient(135deg, #f0f8ff 0%, #fff 100%);
+    border: 1px solid #d1e8f8;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .advanced-box h3 {
+    margin: 0 0 16px 0;
+    color: #5a9fd4;
+    font-size: 1rem;
+  }
+
+  .param-row {
+    margin-bottom: 16px;
+  }
+  .param-row:last-child {
+    margin-bottom: 0;
+  }
+  .param-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    color: #555;
+  }
+  .param-value {
+    font-weight: 600;
+    color: #333;
+    background: #e8f4fc;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  /* 滑块样式 */
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #ddd;
+    outline: none;
+    margin: 0;
+    padding: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--btn-color, #f8d1db);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: transform 0.15s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--btn-color, #f8d1db);
+    cursor: pointer;
+    border: none;
+  }
+
+  /* 复选框样式 */
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+  }
+  .checkbox-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--btn-color, #f8d1db);
+    cursor: pointer;
+  }
+  .checkbox-row label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+
+  /* 测试按钮 */
+  .btn-test {
+    background: #52c41a !important;
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    min-width: auto !important;
+  }
+  .btn-test:hover {
+    background: #45a816 !important;
+  }
+  .btn-test:disabled {
+    background: #95de64 !important;
+    opacity: 0.7;
+  }
+
+  /* ========== 功能模型绑定样式 ========== */
+  .binding-box {
+    background: linear-gradient(135deg, #fff8e6 0%, #fff 100%);
+    border: 1px solid #f7d26d;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .binding-box h3 {
+    margin: 0 0 8px 0;
+    color: #d4a017;
+    font-size: 1rem;
+  }
+  .binding-tip {
+    font-size: 0.85rem;
+    color: #888;
+    margin: 0 0 16px 0;
+  }
+  .binding-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #fff;
+    border: 1px solid #f0e6c8;
+    border-radius: 10px;
+    transition: box-shadow 0.2s;
+  }
+  .binding-row:hover {
+    box-shadow: 0 2px 8px rgba(212, 160, 23, 0.15);
+  }
+  .binding-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .binding-icon {
+    font-size: 1.5rem;
+  }
+  .binding-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .binding-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
+  }
+  .binding-desc {
+    font-size: 0.8rem;
+    color: #999;
+  }
+  .binding-selects {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .binding-selects select {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+  }
+  .bind-config-select {
+    max-width: 40%;
+  }
+  .bind-model-select {
+    max-width: 40%;
+  }
+  .binding-actions {
+    margin-top: 16px;
+    text-align: center;
+  }
+  .btn-save-bindings {
+    background: linear-gradient(135deg, #f7d26d 0%, #e5b84c 100%) !important;
+    color: #fff !important;
+  }
+  .btn-save-bindings:hover {
+    background: linear-gradient(135deg, #e5b84c 0%, #d4a017 100%) !important;
+  }
+
+  /* 测试结果提示 */
+  .binding-test-result {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: none;
+  }
+  .binding-test-result.success {
+    display: block;
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+    color: #52c41a;
+  }
+  .binding-test-result.error {
+    display: block;
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+    color: #ff4d4f;
+  }
+  .binding-test-result.loading {
+    display: block;
+    background: #e6f7ff;
+    border: 1px solid #91d5ff;
+    color: #1890ff;
+  }
+
+  @media (max-width: 420px) {
+    .binding-selects {
+      flex-direction: column;
+    }
+    .bind-config-select,
+    .bind-model-select {
+      max-width: 100%;
+    }
+    .binding-selects .btn-test {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <div class="header" id="pageHeader">
+    <button class="back-btn" id="back-btn" aria-label="返回">←</button>
+    API 配置
+  </div>
+
+  <div class="form-container">
+    <!-- API 服务商信息 -->
+    <div class="info-box">
+      <h3>🎀 API 服务商</h3>
+      <div class="info-item">
+        <span class="info-label">服务商地址</span>
+        <span class="info-value api-url-display">api.daidaibird.top</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">剩余额度</span>
+        <span class="info-value loading" id="balance-display">请选择或添加配置</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">已用额度</span>
+        <span class="info-value loading" id="used-display">--</span>
+      </div>
+    </div>
+
+    <!-- 已保存的配置列表 -->
+    <div class="config-list-box">
+      <h3>
+        <span>📋 已保存的配置</span>
+        <button id="add-new-btn" class="btn-small">+ 新建配置</button>
+      </h3>
+      <div class="config-list" id="config-list">
+        <div class="no-configs">暂无保存的配置</div>
+      </div>
+    </div>
+
+    <!-- 新建/编辑配置表单（移到配置列表下方） -->
+    <div class="form-section" id="config-form-section" style="display:none;">
+      <div class="info-box">
+        <h3 id="form-title">➕ 新建配置</h3>
+        
+        <label for="api-name">配置名称</label>
+        <input id="api-name" placeholder="例如：主账号、测试密钥" type="text" />
+
+        <label for="api-key">API 密钥</label>
+        <div class="key-input-wrapper">
+          <input id="api-key" placeholder="格式：sk-xxxxxxxxxxxx" type="password" />
+          <button type="button" class="toggle-key-btn" id="toggle-key">显示</button>
+        </div>
+
+        <p class="status" id="api-status"></p>
+
+        <div class="button-group" style="margin-top:16px;">
+          <button id="fetch-models">🔍 测试密钥</button>
+          <button id="query-balance" class="btn-secondary">查询额度</button>
+        </div>
+        
+        <div class="button-group" style="margin-top:12px;">
+          <button id="save-config">💾 保存配置</button>
+          <button id="cancel-edit" class="btn-secondary">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能模型绑定区域 -->
+    <div class="binding-box" id="binding-box">
+      <h3>🎯 功能模型绑定</h3>
+      <p class="binding-tip">为不同功能指定独立的模型，互不影响</p>
+      
+      <!-- 聊天模型 -->
+      <div class="binding-row" data-func="chat">
+        <div class="binding-label">
+          <span class="binding-icon">💬</span>
+          <div class="binding-info">
+            <span class="binding-name">聊天模型</span>
+            <span class="binding-desc">QQ/微信聊天功能</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-chat-config" class="bind-config-select" data-func="chat">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-chat-model" class="bind-model-select" data-func="chat">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="chat">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-chat"></div>
+      </div>
+
+      <!-- 总结模型 -->
+      <div class="binding-row" data-func="summary">
+        <div class="binding-label">
+          <span class="binding-icon">📝</span>
+          <div class="binding-info">
+            <span class="binding-name">总结模型</span>
+            <span class="binding-desc">聊天记录总结</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-summary-config" class="bind-config-select" data-func="summary">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-summary-model" class="bind-model-select" data-func="summary">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="summary">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-summary"></div>
+      </div>
+
+      <!-- 角色日记模型 -->
+      <div class="binding-row" data-func="diary">
+        <div class="binding-label">
+          <span class="binding-icon">📖</span>
+          <div class="binding-info">
+            <span class="binding-name">日记模型</span>
+            <span class="binding-desc">替角色写日记</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-diary-config" class="bind-config-select" data-func="diary">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-diary-model" class="bind-model-select" data-func="diary">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="diary">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-diary"></div>
+      </div>
+
+      <!-- 角色动态模型 -->
+      <div class="binding-row" data-func="moments">
+        <div class="binding-label">
+          <span class="binding-icon">🌟</span>
+          <div class="binding-info">
+            <span class="binding-name">动态模型</span>
+            <span class="binding-desc">发布朋友圈/动态</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-moments-config" class="bind-config-select" data-func="moments">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-moments-model" class="bind-model-select" data-func="moments">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="moments">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-moments"></div>
+      </div>
+
+      <!-- 界面生成模型 -->
+      <div class="binding-row" data-func="interface">
+        <div class="binding-label">
+          <span class="binding-icon">🖼️</span>
+          <div class="binding-info">
+            <span class="binding-name">界面生成</span>
+            <span class="binding-desc">生成帖子内容</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-interface-config" class="bind-config-select" data-func="interface">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-interface-model" class="bind-model-select" data-func="interface">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="interface">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-interface"></div>
+      </div>
+
+      <!-- 画图模型 -->
+      <div class="binding-row" data-func="image">
+        <div class="binding-label">
+          <span class="binding-icon">🎨</span>
+          <div class="binding-info">
+            <span class="binding-name">画图模型</span>
+            <span class="binding-desc">MoMo论坛AI生图</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-image-config" class="bind-config-select" data-func="image">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-image-model" class="bind-model-select" data-func="image">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="image">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-image"></div>
+      </div>
+
+      <div class="binding-actions">
+        <button id="save-bindings" class="btn-save-bindings">💾 保存绑定设置</button>
+      </div>
+    </div>
+
+    <!-- 高级参数设置 -->
+    <div class="advanced-box">
+      <h3>⚙️ 高级参数设置</h3>
+      
+      <div class="param-row">
+        <div class="param-label">
+          <span>🌡️ 温度 (Temperature)</span>
+          <span class="param-value" id="temp-value">0.7</span>
+        </div>
+        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">
+          <span>🎯 Top-P (核采样)</span>
+          <span class="param-value" id="topp-value">1.0</span>
+        </div>
+        <input type="range" id="top-p" min="0" max="1" step="0.05" value="1">
+      </div>
+
+      <div class="param-row">
+        <div class="param-label">
+          <span>📝 最大 Token 数</span>
+        </div>
+        <input type="number" id="max-tokens" min="1" max="128000" value="2048" placeholder="1 ~ 128000">
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="stream-enabled" checked>
+        <label for="stream-enabled">🌊 启用流式传输（打字机效果）</label>
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="web-search-enabled">
+        <label for="web-search-enabled">🔍 启用联网搜索（帖子生成时注入搜索指令）</label>
+      </div>
+    </div>
+
+    <div class="link-box">
+      🔗 <a href="https://key.daidaibird.top" target="_blank">前往查询密钥调用详情 →</a>
+    </div>
+
+    <p class="tip-text">
+      提示：可保存多个 API 密钥配置。<br>
+      功能模型绑定可为不同功能指定独立的模型，互不干扰。
+    </p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script src="scripts/frame-helper.js"></script>
+<script src="scripts/api-config.js"></script>
+<script src="scripts/theme.js"></script>
+</body>
+</html>
