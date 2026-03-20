@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       ChatDiary.checkAndSchedule(ChatCore.currentCharacter.id);
     }
 
+    // 主动发言检查
+    if (ChatCore.currentCharacter && !ChatCore.currentCharacter.isGroup) {
+      checkProactiveSpeaking();
+    }
+
     // @提及监听
     const msgInput = document.getElementById('message-input');
     msgInput.addEventListener('input', () => {
@@ -1170,4 +1175,88 @@ function formatCallDuration(seconds) {
   const s = seconds % 60;
   if (m === 0) return `${s}秒`;
   return `${m}分${s}秒`;
+}
+
+// ========== 主动发言 ==========
+async function checkProactiveSpeaking() {
+  const char = ChatCore.currentCharacter;
+  if (!char || !char.proactiveSettings?.enabled) return;
+
+  const interval = (char.proactiveSettings.intervalHours || 4) * 3600 * 1000;
+  const lastProactive = char._lastProactiveTime || 0;
+  const now = Date.now();
+
+  if (now - lastProactive < interval) return;
+
+  // 更新时间戳（先写入防止重复触发）
+  char._lastProactiveTime = now;
+  ChatCore.saveCharacter();
+
+  // 延迟一小段时间，让页面完全加载
+  setTimeout(async () => {
+    try {
+      const apiConfig = ChatCore.getAPIConfig();
+      if (!apiConfig.apiKey) return;
+
+      const contextMsgs = await ChatCore.getContextMessages();
+      const messages = ChatAI.buildMessages({
+        character: char,
+        userSettings: ChatCore.userSettings,
+        contextMsgs,
+        summary: char.summaryContent?.text || '',
+        userMessage: '[系统提示：用户已有一段时间没说话了，请根据你的性格主动找用户聊天，可以分享日常、提问、撒娇、吐槽等，自然一些]'
+      });
+
+      ChatUI.showTyping(char);
+      const reply = await ChatAI.callAPI(messages, apiConfig);
+      ChatUI.hideTyping();
+
+      const parsed = ChatAI.parseResponse(reply);
+
+      if (parsed.status) {
+        const s = parsed.status;
+        if (s.affection !== undefined)
+          char.affection = Math.max(0, Math.min(100, (char.affection || 50) + s.affection));
+        if (s.mood !== undefined)
+          char.mood = Math.max(0, Math.min(100, (char.mood || 70) + s.mood));
+        if (s.thought) char.thought = s.thought;
+        if (s.outfit) char.outfit = s.outfit;
+        if (s.location) char.location = s.location;
+        ChatCore.saveCharacter();
+        ChatUI.updateTopbar(char);
+      }
+
+      for (const content of parsed.floors) {
+        if (!content) continue;
+        const replyId = ChatUtils.generateMsgId();
+        let processedContent = ChatUtils.stripThinking(content);
+        if (typeof ChatGroup !== 'undefined' && ChatGroup.applyRegexRules) {
+          processedContent = ChatGroup.applyRegexRules(processedContent);
+        }
+
+        ChatUI.addMessage({
+          content: processedContent,
+          type: 'received',
+          sender: char.name,
+          avatar: char.avatar,
+          msgId: replyId
+        });
+
+        await ChatCore.saveMessage({
+          id: replyId,
+          chatId: ChatCore.currentChatId,
+          content: processedContent,
+          type: 'received',
+          sender: char.name,
+          avatar: char.avatar,
+          timestamp: Date.now()
+        });
+      }
+
+      ChatUI.scrollToBottom();
+    } catch (e) {
+      console.error('主动发言失败:', e);
+      ChatUI.hideTyping();
+    }
+  }, 2000);
 }

@@ -221,6 +221,36 @@ const ChatSettings = {
 
       <div class="perception-section">
         <div class="perception-header">
+          <div class="perception-icons"><span>💬</span></div>
+          <div>
+            <div class="dynamics-title">主动发言</div>
+            <div class="dynamics-subtitle">角色会按设定频率主动给你发消息</div>
+          </div>
+        </div>
+
+        <div class="switch-row">
+          <div>
+            <div class="switch-label">启用主动发言</div>
+            <div class="switch-hint">角色会定期主动找你聊天</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="proactive-enabled" ${char.proactiveSettings?.enabled ? 'checked' : ''}>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label>发言频率</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" id="proactive-interval" min="0.5" max="168" step="0.5" value="${char.proactiveSettings?.intervalHours || 4}" style="width:80px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+            <span style="font-size:13px;color:#666;">小时一次</span>
+          </div>
+          <div class="form-hint">设定角色多久主动发一次消息（最小0.5小时）</div>
+        </div>
+      </div>
+
+      <div class="perception-section">
+        <div class="perception-header">
           <div class="perception-icons"><span>🕐</span><span>🌤️</span><span>📅</span></div>
           <div>
             <div class="dynamics-title">环境感知</div>
@@ -314,6 +344,11 @@ const ChatSettings = {
       timeAware: document.getElementById('perception-time').checked,
       weatherAware: document.getElementById('perception-weather').checked,
       dateAware: document.getElementById('perception-date').checked
+    };
+
+    char.proactiveSettings = {
+      enabled: document.getElementById('proactive-enabled').checked,
+      intervalHours: parseFloat(document.getElementById('proactive-interval').value) || 4
     };
 
     char.diarySettings = {

@@ -729,6 +729,14 @@ const ChatCore = {
           if (rp.claimed.length >= rp.count) break;
           // 专属红包只有指定人能抢
           if (rp.type === 'exclusive' && claimer !== rp.extra) continue;
+          // 语音红包必须发送语音才能领取
+          if (rp.type === 'voice') {
+            // 群聊：检查该成员是否发了语音；私聊：检查回复中是否有语音
+            const escapedName = claimer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const hasNamedVoice = new RegExp(`<voice[^>]*name=["']${escapedName}["'][^>]*>`, 'i').test(rawReply);
+            const hasAnyVoice = /<voice[\s>]/i.test(rawReply);
+            if (!hasNamedVoice && !hasAnyVoice) continue;
+          }
 
           const remaining = parseFloat(rp.amount) - rp.claimed.reduce((s, c) => s + c.amount, 0);
           const remainCount = rp.count - rp.claimed.length;
