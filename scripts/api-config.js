@@ -9,7 +9,7 @@ const ACTIVE_KEY = 'activeConfigId';
 const BINDINGS_KEY = 'modelBindings';
 
 /* ========== 功能类型定义 ========== */
-const FUNCTION_TYPES = ['chat', 'summary', 'diary', 'moments', 'interface', 'image'];
+const FUNCTION_TYPES = ['chat', 'summary', 'diary', 'moments', 'interface', 'image', 'offline'];
 
 /* ========== 主题颜色表 ========== */
 const themeColors = {
@@ -33,7 +33,8 @@ let modelBindings = {
   diary: { configId: '', model: '' },
   moments: { configId: '', model: '' },
   interface: { configId: '', model: '' },
-  image: { configId: '', model: '' }
+  image: { configId: '', model: '' },
+  offline: { configId: '', model: '' }
 };
 
 /* ========== 工具函数 ========== */

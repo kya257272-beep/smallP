@@ -6,21 +6,22 @@
   <title>聊天</title>
   <link rel="stylesheet" href="styles/chat-room.css">
   <style id="custom-chat-css"></style>
+  <style id="custom-avatar-css"></style>
 </head>
 <body class="chatroom-body" id="chatroom-body">
 
   <!-- 顶栏 -->
   <div class="chatroom-topbar">
     <button class="topbar-btn" onclick="goBack()">←</button>
-    <div class="topbar-center" onclick="showCharacterStatus()">
-      <div class="char-name" id="topbar-name">加载中...</div>
+    <div class="topbar-center" onclick="handleTopbarClick()">
+      <div class="char-name" id="topbar-name">加载中...<span class="topbar-hearts" id="topbar-hearts"></span></div>
       <div class="char-status" id="topbar-status">
         <span class="status-dot online"></span>
         <span>在线</span>
       </div>
     </div>
-    <div class="topbar-right">
-      <button class="topbar-btn" onclick="openMoreActions()">+</button>
+    <div class="topbar-right" id="topbar-right">
+      <button class="topbar-btn group-only-btn" onclick="handlePlusClick()" style="display:none">+</button>
       <button class="topbar-btn" onclick="openSettingsModal()">⋮</button>
     </div>
   </div>
@@ -28,11 +29,75 @@
   <!-- 消息区域 -->
   <div class="chat-messages" id="chat-messages"></div>
 
+  <!-- @提及弹窗 -->
+  <div class="mention-popup" id="mention-popup"></div>
+
+  <!-- 引用预览 -->
+  <div class="quote-preview" id="quote-preview">
+    <div class="quote-preview-content">
+      <span class="quote-preview-sender" id="quote-preview-sender"></span>
+      <span class="quote-preview-text" id="quote-preview-text"></span>
+    </div>
+    <button class="quote-preview-close" onclick="cancelQuote()">✕</button>
+  </div>
+
+  <!-- 语音模式指示器 -->
+  <div class="voice-mode-indicator" id="voice-mode-indicator">
+    <span class="voice-mode-dot"></span>
+    <span>语音模式已开启 - 消息将以语音形式发送</span>
+  </div>
+
+  <!-- 快捷键栏 -->
+  <div class="shortcut-bar" id="shortcut-bar"></div>
+
   <!-- 输入区域 -->
-  <div class="chat-input-area">
-    <button class="input-btn" onclick="document.getElementById('image-input').click()">🖼️</button>
+  <div class="chat-input-area" id="chat-input-area">
+    <button class="input-btn toolbar-toggle-btn themed-icon" onclick="toggleToolbar()">☰</button>
     <textarea id="message-input" rows="1" placeholder="输入消息..."></textarea>
+    <button class="input-btn call-btn themed-icon" onclick="callAI()" title="调用AI">➤</button>
     <button class="send-btn" onclick="sendMessage()">发送</button>
+  </div>
+
+  <!-- 底部工具栏 -->
+  <div class="bottom-toolbar" id="bottom-toolbar">
+    <div class="toolbar-pages" id="toolbar-pages">
+      <div class="toolbar-page active" data-page="0">
+        <div class="toolbar-item" onclick="sendImage()">
+          <span class="toolbar-icon themed-icon">▣</span>
+          <span class="toolbar-label themed-text">图片</span>
+        </div>
+        <div class="toolbar-item" onclick="openTransferModal()">
+          <span class="toolbar-icon themed-icon">⇄</span>
+          <span class="toolbar-label themed-text">转账</span>
+        </div>
+        <div class="toolbar-item" onclick="openRedPacketModal()">
+          <span class="toolbar-icon">🧧</span>
+          <span class="toolbar-label themed-text">红包</span>
+        </div>
+        <div class="toolbar-item" onclick="openStickerPanel()">
+          <span class="toolbar-icon themed-icon">☻</span>
+          <span class="toolbar-label themed-text">表情</span>
+        </div>
+      </div>
+      <div class="toolbar-page" data-page="1">
+        <div class="toolbar-item" onclick="openShortcutSettings()">
+          <span class="toolbar-icon">⌨️</span>
+          <span class="toolbar-label themed-text">快捷键</span>
+        </div>
+        <div class="toolbar-item" onclick="startVoiceCall()">
+          <span class="toolbar-icon">📞</span>
+          <span class="toolbar-label themed-text">语音通话</span>
+        </div>
+        <div class="toolbar-item" onclick="toggleVoiceMode()">
+          <span class="toolbar-icon themed-icon">⊣⊢</span>
+          <span class="toolbar-label themed-text">语音</span>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar-dots" id="toolbar-dots">
+      <span class="toolbar-dot active" data-page="0"></span>
+      <span class="toolbar-dot" data-page="1"></span>
+    </div>
   </div>
 
   <!-- 隐藏的文件输入 -->
@@ -40,6 +105,7 @@
   <input type="file" id="user-avatar-input" accept="image/*" style="display:none" onchange="handleUserAvatarUpload(this)">
   <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="setChatBackground(this)">
   <input type="file" id="image-input" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+  <input type="file" id="illustration-input" accept="image/*" style="display:none" onchange="ChatSettings.handleIllustrationUpload(this)">
 
   <!-- 设置弹窗 -->
   <div class="modal" id="settings-modal">
@@ -52,64 +118,59 @@
       <div class="modal-body">
         <div class="settings-list">
           <div class="settings-item" onclick="openEditCharacter()">
-            <span class="settings-icon">✏️</span>
-            <span class="settings-text">编辑角色设定</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">✎</span>
+            <span class="settings-text themed-text">编辑角色设定</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="openUserSettings()">
-            <span class="settings-icon">👤</span>
-            <span class="settings-text">用户设定</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">♚</span>
+            <span class="settings-text themed-text">用户设定</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
-          <div class="settings-item" onclick="openPresetSettings()">
-            <span class="settings-icon">🎭</span>
-            <span class="settings-text">预设/Prompt</span>
-            <span class="settings-arrow">›</span>
-          </div>
-          <div class="settings-item" onclick="openWorldBook()">
-            <span class="settings-icon">📚</span>
-            <span class="settings-text">世界书</span>
-            <span class="settings-arrow">›</span>
+          <div class="settings-item" onclick="openPromptOrderSettings()">
+            <span class="settings-icon themed-icon">⌘</span>
+            <span class="settings-text themed-text">提示词</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="openAvatarFrameSettings()">
-            <span class="settings-icon">💠</span>
-            <span class="settings-text">头像框</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">◎</span>
+            <span class="settings-text themed-text">头像框</span>
+            <span class="settings-arrow themed-text">›</span>
+          </div>
+          <div class="settings-item" onclick="openBubbleStyleSettings()">
+            <span class="settings-icon themed-icon">◈</span>
+            <span class="settings-text themed-text">气泡样式</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="openChatBackground()">
-            <span class="settings-icon">🖼️</span>
-            <span class="settings-text">聊天背景</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">▣</span>
+            <span class="settings-text themed-text">聊天背景</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="openContextSettings()">
-            <span class="settings-icon">📊</span>
-            <span class="settings-text">上下文条数</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">▤</span>
+            <span class="settings-text themed-text">上下文条数</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="summarizeContext()">
-            <span class="settings-icon">📝</span>
-            <span class="settings-text">总结上下文</span>
-            <span class="settings-arrow">›</span>
-          </div>
-          <div class="settings-item" onclick="openGroupChatModal()">
-            <span class="settings-icon">👥</span>
-            <span class="settings-text">创建群聊</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">⎗</span>
+            <span class="settings-text themed-text">总结上下文</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="goOfflineMode()">
-            <span class="settings-icon">📴</span>
-            <span class="settings-text">离线模式</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">☾⋆</span>
+            <span class="settings-text themed-text">线下模式</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item" onclick="clearChatHistory()">
-            <span class="settings-icon">🗑️</span>
-            <span class="settings-text">清空聊天记录</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">⊠</span>
+            <span class="settings-text themed-text">清空聊天记录</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
           <div class="settings-item danger" onclick="deleteCharacter()">
-            <span class="settings-icon">❌</span>
-            <span class="settings-text">删除角色</span>
-            <span class="settings-arrow">›</span>
+            <span class="settings-icon themed-icon">✗</span>
+            <span class="settings-text themed-text">删除角色</span>
+            <span class="settings-arrow themed-text">›</span>
           </div>
         </div>
       </div>
@@ -226,15 +287,222 @@
     </div>
   </div>
 
-  <!-- 群聊创建弹窗 -->
-  <div class="modal" id="group-chat-modal">
-    <div class="modal-backdrop" onclick="closeGroupChatModal()"></div>
+  <!-- 群聊+面板弹窗 -->
+  <div class="modal" id="group-plus-modal">
+    <div class="modal-backdrop" onclick="closeGroupPlus()"></div>
     <div class="modal-content">
       <div class="modal-header">
-        <span>创建群聊</span>
-        <button class="close-btn" onclick="closeGroupChatModal()">✕</button>
+        <span>群聊工具</span>
+        <button class="close-btn" onclick="closeGroupPlus()">✕</button>
       </div>
-      <div class="modal-body" id="group-chat-body"></div>
+      <div class="more-actions-grid">
+        <div class="action-item" onclick="openGroupMemberPersona()">
+          <div class="action-icon themed-icon">♞</div>
+          <span class="action-name themed-text">成员人设</span>
+        </div>
+        <div class="action-item" onclick="openGroupUserPersona()">
+          <div class="action-icon themed-icon">♚</div>
+          <span class="action-name themed-text">用户人设</span>
+        </div>
+        <div class="action-item" onclick="openGroupPromptOrder()">
+          <div class="action-icon themed-icon">⌘</div>
+          <span class="action-name themed-text">群聊提示词</span>
+        </div>
+        <div class="action-item" onclick="openRegexReplace()">
+          <div class="action-icon themed-icon">囸</div>
+          <span class="action-name themed-text">正则替换</span>
+        </div>
+        <div class="action-item" onclick="openGroupSummary()">
+          <div class="action-icon themed-icon">⎗</div>
+          <span class="action-name themed-text">总结</span>
+        </div>
+        <div class="action-item" onclick="openFavorites()">
+          <div class="action-icon themed-icon">✦</div>
+          <span class="action-name themed-text">收藏消息</span>
+        </div>
+        <div class="action-item" onclick="openSearchHistory()">
+          <div class="action-icon themed-icon">⌕</div>
+          <span class="action-name themed-text">查找记录</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 气泡长按菜单 -->
+  <div class="bubble-menu" id="bubble-menu">
+    <button class="bubble-menu-btn" onclick="bubbleRegenerate()" title="重新生成">↺</button>
+    <button class="bubble-menu-btn" onclick="bubbleContinue()" title="继续生成">⇉</button>
+    <button class="bubble-menu-btn" onclick="bubbleEdit()" title="编辑">✎</button>
+    <button class="bubble-menu-btn" onclick="bubbleDelete()" title="删除">⌫</button>
+    <button class="bubble-menu-btn" onclick="bubbleFavorite()" title="收藏">♡</button>
+    <button class="bubble-menu-btn" onclick="bubbleQuote()" title="引用">❝</button>
+  </div>
+
+  <!-- 收藏消息弹窗 -->
+  <div class="modal" id="favorites-modal">
+    <div class="modal-backdrop" onclick="closeFavorites()"></div>
+    <div class="modal-content" style="max-height:90vh">
+      <div class="modal-header">
+        <span>✦ 收藏消息</span>
+        <button class="close-btn" onclick="closeFavorites()">✕</button>
+      </div>
+      <div class="modal-body" id="favorites-body">
+        <div class="empty-hint">暂无收藏消息</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 查找聊天记录弹窗 -->
+  <div class="modal" id="search-history-modal">
+    <div class="modal-backdrop" onclick="closeSearchHistory()"></div>
+    <div class="modal-content" style="max-height:90vh">
+      <div class="modal-header">
+        <span>⌕ 查找聊天记录</span>
+        <button class="close-btn" onclick="closeSearchHistory()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-bar">
+          <input type="text" id="search-history-input" placeholder="输入关键词搜索..." oninput="searchHistoryDebounce()">
+        </div>
+        <div id="search-results" class="search-results">
+          <div class="empty-hint">输入关键词开始搜索</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 转账弹窗 -->
+  <div class="modal" id="transfer-modal">
+    <div class="modal-backdrop" onclick="closeTransferModal()"></div>
+    <div class="modal-content transfer-modal-content">
+      <div class="modal-header">
+        <span>转账</span>
+        <button class="close-btn" onclick="closeTransferModal()">✕</button>
+      </div>
+      <div class="modal-body transfer-body">
+        <div id="transfer-target-section" style="display:none">
+          <label>转账给</label>
+          <select id="transfer-target" class="transfer-select"></select>
+        </div>
+        <div class="transfer-amount-section">
+          <span class="transfer-currency">¥</span>
+          <input type="number" id="transfer-amount" placeholder="0.00" step="0.01" min="0.01">
+        </div>
+        <div class="form-group">
+          <input type="text" id="transfer-note" placeholder="添加转账说明" maxlength="30">
+        </div>
+        <button class="transfer-confirm-btn" onclick="confirmTransfer()">转账</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 红包弹窗 -->
+  <div class="modal" id="redpacket-modal">
+    <div class="modal-backdrop" onclick="closeRedPacketModal()"></div>
+    <div class="modal-content rp-modal-content">
+      <div class="modal-header">
+        <span>发红包</span>
+        <button class="close-btn" onclick="closeRedPacketModal()">✕</button>
+      </div>
+      <div class="modal-body rp-body">
+        <div class="rp-tabs">
+          <span class="rp-tab active" data-type="lucky" onclick="switchRPTab('lucky')">拼手气</span>
+          <span class="rp-tab" data-type="voice" onclick="switchRPTab('voice')">语音</span>
+          <span class="rp-tab" data-type="exclusive" onclick="switchRPTab('exclusive')">专属</span>
+        </div>
+        <div class="rp-form">
+          <div class="form-group">
+            <input type="number" id="rp-amount" placeholder="红包金额" step="0.01" min="0.01">
+          </div>
+          <div class="form-group" id="rp-count-group">
+            <input type="number" id="rp-count" placeholder="红包个数" min="1" value="1">
+          </div>
+          <div class="form-group" id="rp-voice-group" style="display:none">
+            <input type="text" id="rp-voice-text" placeholder="输入语音口令" maxlength="20">
+          </div>
+          <div class="form-group" id="rp-exclusive-group" style="display:none">
+            <select id="rp-exclusive-target" class="transfer-select"></select>
+          </div>
+          <button class="rp-send-btn" onclick="confirmRedPacket()">塞钱进红包</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 红包打开弹窗 -->
+  <div class="modal" id="redpacket-open-modal">
+    <div class="modal-backdrop" onclick="closeRedPacketOpen()"></div>
+    <div class="modal-content rp-open-content">
+      <div class="rp-open-cover" id="rp-open-cover">
+        <div class="rp-open-sender" id="rp-open-sender"></div>
+        <div class="rp-open-text" id="rp-open-text"></div>
+        <div class="rp-open-btn-wrap" id="rp-open-btn-wrap">
+          <button class="rp-open-btn" onclick="claimRedPacket()">開</button>
+        </div>
+      </div>
+      <div class="rp-claimed-list" id="rp-claimed-list"></div>
+    </div>
+  </div>
+
+  <!-- 表情面板 -->
+  <div class="sticker-panel" id="sticker-panel">
+    <div class="sticker-panel-header">
+      <span>表情</span>
+      <button class="sticker-panel-close" onclick="closeStickerPanel()">✕</button>
+    </div>
+    <div class="sticker-grid" id="sticker-grid"></div>
+    <div class="sticker-actions">
+      <button class="sticker-action-btn" onclick="addSticker()">+ 添加表情</button>
+      <button class="sticker-action-btn" onclick="toggleStickerManage()">管理</button>
+    </div>
+  </div>
+  <input type="file" id="sticker-input" accept="image/*" style="display:none" onchange="handleStickerUpload(this)">
+
+  <!-- 快捷键设置弹窗 -->
+  <div class="modal" id="shortcut-modal">
+    <div class="modal-backdrop" onclick="closeShortcutSettings()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>⌨️ 快捷键设置</span>
+        <button class="close-btn" onclick="closeShortcutSettings()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-add-row">
+          <input type="text" id="shortcut-input" placeholder="输入快捷内容（如 ! ? 哈哈）" maxlength="20">
+          <button class="shortcut-add-btn" onclick="addShortcut()">添加</button>
+        </div>
+        <div class="shortcut-list" id="shortcut-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 语音通话选人弹窗（群聊用） -->
+  <div class="modal" id="voicecall-select-modal">
+    <div class="modal-backdrop" onclick="closeVoiceCallSelect()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>📞 选择通话成员</span>
+        <button class="close-btn" onclick="closeVoiceCallSelect()">✕</button>
+      </div>
+      <div class="modal-body" id="voicecall-select-body"></div>
+    </div>
+  </div>
+
+  <!-- 语音通话界面 -->
+  <div class="voicecall-overlay" id="voicecall-overlay">
+    <div class="voicecall-panel">
+      <div class="voicecall-header">
+        <span class="voicecall-title">语音通话中</span>
+        <span class="voicecall-timer" id="voicecall-timer">00:00</span>
+      </div>
+      <div class="voicecall-members" id="voicecall-members"></div>
+      <div class="voicecall-divider"></div>
+      <div class="voicecall-messages" id="voicecall-messages"></div>
+      <div class="voicecall-input-area">
+        <textarea id="voicecall-input" rows="1" placeholder="发送语音消息..."></textarea>
+        <button class="voicecall-send-btn" onclick="sendVoiceCallMsg()">发送</button>
+      </div>
+      <button class="voicecall-end-btn" onclick="endVoiceCall()">挂断</button>
     </div>
   </div>
 
@@ -246,6 +514,7 @@
   <script src="scripts/chat-room/core.js"></script>
   <script src="scripts/chat-room/settings.js"></script>
   <script src="scripts/chat-room/summary.js"></script>
+  <script src="scripts/chat-room/diary.js"></script>
   <script src="scripts/chat-room/group.js"></script>
   <script src="scripts/chat-room/index.js"></script>
 </body>

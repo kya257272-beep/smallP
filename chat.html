@@ -71,15 +71,27 @@
     
     <!-- 空间页 -->
     <div class="swipe-page" id="page-space">
-      <div class="space-panel">
-        <div class="dynamics-header">
-          <span>角色动态</span>
-          <label class="toggle-switch">
+      <div class="space-page">
+        <!-- 封面区 -->
+        <div class="space-cover" id="space-cover" onclick="uploadSpaceCover()">
+          <img id="space-cover-img" src="" style="display:none;">
+          <div class="space-cover-placeholder" id="space-cover-placeholder">点击设置封面</div>
+        </div>
+        <!-- 交界处：用户头像 + 用户名 -->
+        <div class="space-profile">
+          <div class="space-avatar-wrapper" onclick="uploadSpaceAvatar()">
+            <div class="space-avatar" id="space-avatar"></div>
+          </div>
+          <div class="space-username" id="space-username"></div>
+          <label class="toggle-switch" style="margin-left:auto;">
             <input type="checkbox" id="dynamics-toggle" onchange="toggleDynamics()">
             <span class="toggle-slider"></span>
           </label>
         </div>
-        <div class="dynamics-list" id="dynamics-list"></div>
+        <!-- 动态流 -->
+        <div class="space-feed" id="space-feed"></div>
+        <!-- 新建动态FAB -->
+        <div class="space-fab" onclick="openNewPostEditor()">✎</div>
       </div>
     </div>
   </div>
@@ -110,20 +122,16 @@
       </div>
       <div class="modal-body">
         <div class="add-options">
-          <div class="add-option" onclick="importPNGCard()">
-            <div class="option-icon">🖼️</div>
-            <div class="option-text">导入PNG角色卡</div>
-          </div>
-          <div class="add-option" onclick="importJSONCard()">
-            <div class="option-icon">📄</div>
-            <div class="option-text">导入JSON角色卡</div>
-          </div>
           <div class="add-option" onclick="showManualForm()">
-            <div class="option-icon">✏️</div>
-            <div class="option-text">手动创建</div>
+            <div class="option-icon themed-gradient-icon">✎</div>
+            <div class="option-text">手动创建角色</div>
+          </div>
+          <div class="add-option" onclick="window.location.href='group-create.html'">
+            <div class="option-icon themed-gradient-icon">♞</div>
+            <div class="option-text">创建群聊</div>
           </div>
           <div class="add-option" onclick="showQIDSearch()">
-            <div class="option-icon">🔍</div>
+            <div class="option-icon themed-gradient-icon">⌕</div>
             <div class="option-text">通过QID添加MoMo好友</div>
           </div>
         </div>
@@ -135,7 +143,7 @@
           </div>
           <button class="save-btn" onclick="searchMomoByQID()">搜索并添加</button>
         </div>
-        
+
         <div id="manual-form" style="display:none;">
           <div class="form-group">
             <label>头像</label>
@@ -155,6 +163,26 @@
             <label>角色设定</label>
             <textarea id="char-description" rows="4" placeholder="角色的背景、性格等"></textarea>
           </div>
+          <div class="collapse-panel" style="margin-top:10px;border:1px solid #eee;border-radius:10px;">
+            <div class="collapse-header" onclick="this.parentElement.classList.toggle('open')" style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+              <span style="font-size:14px;font-weight:500;">⚙️ 高级设定</span>
+              <span class="collapse-arrow" style="font-size:12px;transition:transform 0.2s;">▼</span>
+            </div>
+            <div class="collapse-body" style="padding:0 12px 12px;display:none;">
+              <div class="form-group">
+                <label>对话示例</label>
+                <textarea id="char-example" rows="3" placeholder="{{user}}: 你好\n{{char}}: 你好呀~"></textarea>
+              </div>
+              <div class="form-group">
+                <label>开场白</label>
+                <textarea id="char-greeting" rows="3" placeholder="角色的第一句话"></textarea>
+              </div>
+            </div>
+          </div>
+          <style>
+            .collapse-panel.open .collapse-body { display: block !important; }
+            .collapse-panel.open .collapse-arrow { transform: rotate(180deg); }
+          </style>
           <button class="save-btn" onclick="saveCharacter()">创建角色</button>
         </div>
       </div>
@@ -170,12 +198,22 @@
         <button class="close-btn" onclick="closeColorPicker()">✕</button>
       </div>
       <div class="modal-body">
+        <div class="selected-colors" id="selected-colors"></div>
+        <div class="gradient-direction" id="gradient-direction">
+          <span class="dir-option selected" data-dir="90deg" onclick="selectGradientDir('90deg')">→</span>
+          <span class="dir-option" data-dir="180deg" onclick="selectGradientDir('180deg')">↓</span>
+          <span class="dir-option" data-dir="135deg" onclick="selectGradientDir('135deg')">↘</span>
+          <span class="dir-option" data-dir="45deg" onclick="selectGradientDir('45deg')">↗</span>
+        </div>
         <div class="color-presets" id="color-presets"></div>
         <div class="custom-color">
           <input type="color" id="custom-color-input" value="#12B7F5">
           <span>自定义颜色</span>
         </div>
-        <button class="save-btn" onclick="applyColor()">应用</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary" onclick="addColorToGradient()" style="flex:1;">+ 添加颜色</button>
+          <button class="save-btn" onclick="applyColor()" style="flex:1;">应用</button>
+        </div>
       </div>
     </div>
   </div>
@@ -237,10 +275,27 @@
   </div>
 
   <!-- 隐藏的文件输入 -->
-  <input type="file" id="png-input" accept=".png" style="display:none" onchange="handlePNGImport(this)">
-  <input type="file" id="json-input" accept=".json" style="display:none" onchange="handleJSONImport(this)">
   <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="previewAvatar(this)">
   <input type="file" id="wallpaper-input" accept="image/*" style="display:none" onchange="addWallpaper(this)">
+  <input type="file" id="space-cover-input" accept="image/*" style="display:none" onchange="handleSpaceCoverSelect(this)">
+  <input type="file" id="space-avatar-input" accept="image/*" style="display:none" onchange="handleSpaceAvatarSelect(this)">
+  <input type="file" id="post-image-input" accept="image/*" multiple style="display:none" onchange="handlePostImageSelect(this)">
+
+  <!-- 新建动态编辑器 -->
+  <div class="modal" id="new-post-modal">
+    <div class="modal-backdrop" onclick="closeNewPostEditor()"></div>
+    <div class="modal-content">
+      <div class="modal-header"><span>发布动态</span><button class="close-btn" onclick="closeNewPostEditor()">✕</button></div>
+      <div class="modal-body">
+        <textarea id="post-text-input" placeholder="说点什么..." rows="5" style="width:100%;padding:10px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;resize:vertical;margin-bottom:8px;"></textarea>
+        <div class="post-image-preview" id="post-image-preview"></div>
+        <div class="post-toolbar">
+          <button class="post-tool-btn" onclick="document.getElementById('post-image-input').click()">🖼️ 图片</button>
+        </div>
+        <button class="save-btn" onclick="submitNewPost()" style="margin-top:8px;">发布</button>
+      </div>
+    </div>
+  </div>
 
   <!-- chat.js 中已定义 goBack() -->
   <script src="scripts/chat.js"></script>

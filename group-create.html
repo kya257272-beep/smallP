@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>创建群聊</title>
+  <link rel="stylesheet" href="styles/group-create.css">
+  <style id="custom-theme-css"></style>
+</head>
+<body>
+  <div class="gc-topbar">
+    <button class="gc-back-btn" onclick="history.back()">←</button>
+    <div class="gc-topbar-title">创建群聊</div>
+  </div>
+
+  <div class="gc-content">
+    <!-- 群头像 -->
+    <div class="gc-avatar-section" onclick="document.getElementById('group-avatar-input').click()">
+      <div class="gc-avatar-preview" id="gc-avatar-preview">
+        <span>点击上传<br>群头像</span>
+      </div>
+    </div>
+
+    <!-- 群名 -->
+    <div class="gc-form-group">
+      <label>群名称 <span class="required">*</span></label>
+      <input type="text" id="gc-name" placeholder="输入群聊名称" maxlength="30">
+    </div>
+
+    <!-- 群简介 -->
+    <div class="gc-form-group">
+      <label>群简介</label>
+      <textarea id="gc-desc" rows="3" placeholder="输入群简介（可选）"></textarea>
+    </div>
+
+    <!-- 选择成员 -->
+    <div class="gc-section-title">选择群成员 <span class="gc-selected-count" id="gc-selected-count">已选 0 人</span></div>
+    <div class="gc-member-list" id="gc-member-list">
+      <div class="gc-loading">加载中...</div>
+    </div>
+
+    <!-- 创建按钮 -->
+    <button class="gc-create-btn" id="gc-create-btn" onclick="createGroup()">创建群聊</button>
+  </div>
+
+  <input type="file" id="group-avatar-input" accept="image/*" style="display:none" onchange="previewGroupAvatar(this)">
+
+  <script src="scripts/chat.js"></script>
+  <script src="scripts/group-create.js"></script>
+</body>
+</html>

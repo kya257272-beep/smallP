@@ -104,7 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadThemeSettings();
   applyWallpaperToBody();
   await renderCharacterList();
-  await renderDynamics();
+  initSpacePage();
+  await renderSpaceFeed();
   setupSwipeListeners();
 
   dynamicsEnabled = localStorage.getItem('dynamicsEnabled') === 'true';
@@ -132,19 +133,27 @@ function goBack() {
 function loadThemeSettings() {
   const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
   const topbarColor = theme.topbarColor || '#12B7F5';
+  const topbarColors = theme.topbarColors || [topbarColor];
+  const topbarDir = theme.topbarGradientDir || '135deg';
+  const topbarGradient = buildGradientCSS(topbarColors, topbarDir);
   document.documentElement.style.setProperty('--topbar-color', topbarColor);
-  
+  document.documentElement.style.setProperty('--topbar-gradient', topbarGradient);
+
   const topbar = document.getElementById('qq-topbar');
-  if (topbar) topbar.style.background = hexToRgba(topbarColor, 0.6);
-  
+  if (topbar) topbar.style.background = topbarColors.length > 1 ? topbarGradient : hexToRgba(topbarColor, 0.6);
+
   const preview = document.getElementById('topbar-color-preview');
-  if (preview) preview.style.background = topbarColor;
-  
+  if (preview) preview.style.background = topbarGradient;
+
   const bubbleColor = theme.bubbleColor || '#12B7F5';
+  const bubbleColors = theme.bubbleColors || [bubbleColor];
+  const bubbleDir = theme.bubbleGradientDir || '135deg';
+  const bubbleGradient = buildGradientCSS(bubbleColors, bubbleDir);
   document.documentElement.style.setProperty('--bubble-sent', bubbleColor);
+  document.documentElement.style.setProperty('--bubble-sent-gradient', bubbleGradient);
   const bubblePreview = document.getElementById('bubble-color-preview');
-  if (bubblePreview) bubblePreview.style.background = bubbleColor;
-  
+  if (bubblePreview) bubblePreview.style.background = bubbleGradient;
+
   if (theme.customCSS) {
     const cssEl = document.getElementById('custom-theme-css');
     if (cssEl) cssEl.textContent = theme.customCSS;
@@ -214,9 +223,7 @@ async function renderCharacterList() {
   if (!list) return;
   
   const characters = await getAllCharacters();
-  const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
-  const frameStyle = theme.avatarFrame || '';
-  
+
   if (characters.length === 0) {
     list.innerHTML = `<div class="empty-state"><div class="icon">💬</div><div class="text">还没有聊天，点击右上角+添加角色</div></div>`;
     return;
@@ -230,7 +237,7 @@ async function renderCharacterList() {
         <div class="char-avatar">
           ${char.avatar ? `<img src="${char.avatar}" alt="${escapeHtml(char.name)}">` : char.name.charAt(0).toUpperCase()}
         </div>
-        ${frameStyle ? `<div class="avatar-frame ${frameStyle}"></div>` : ''}
+        ${(() => { const f = char.settings?.avatarFrame || ''; return f ? (f.startsWith('custom:') ? `<div class="avatar-frame" style="box-shadow: 0 0 0 2px ${f.replace('custom:', '')}, 0 0 10px ${f.replace('custom:', '')}40;"></div>` : `<div class="avatar-frame ${f}"></div>`) : ''; })()}
       </div>
       <div class="char-info">
         <div class="name">${escapeHtml(char.name)}</div>
@@ -239,6 +246,7 @@ async function renderCharacterList() {
       <div class="char-meta">
         <div class="time">${formatTime(char.lastMsgTime)}</div>
         ${char.unreadCount ? `<div class="unread">${char.unreadCount}</div>` : ''}
+        ${char.dynamicsSettings?.postDiary ? `<div class="diary-badge" onclick="event.stopPropagation();openDiary('${char.id}')" title="查看日记">📖</div>` : ''}
       </div>
     </div>
   `).join('');
@@ -249,15 +257,47 @@ function filterCharacters() {
   if (!input) return;
   const keyword = input.value.trim().toLowerCase();
   document.querySelectorAll('.character-item').forEach(item => {
-    const nameEl = item.querySelector('.name');
-    if (!nameEl) return;
-    const name = nameEl.textContent.toLowerCase();
-    item.style.display = (!keyword || name.includes(keyword)) ? 'flex' : 'none';
+    const name = item.querySelector('.name')?.textContent.toLowerCase() || '';
+    const lastMsg = item.querySelector('.last-msg')?.textContent.toLowerCase() || '';
+    const visible = !keyword || name.includes(keyword) || lastMsg.includes(keyword);
+    item.style.display = visible ? 'flex' : 'none';
   });
 }
 
 function openChat(charId) {
   window.location.href = `chat-room.html?id=${charId}`;
+}
+
+function openDiary(charId) {
+  window.location.href = `diary.html?charId=${charId}`;
+}
+
+// ========== 图片压缩 ==========
+function compressImage(file, maxSize = 800) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    img.onload = () => {
+      let width = img.width, height = img.height;
+      if (width > height) {
+        if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+      } else {
+        if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function compressAvatar(file, maxSize = 256) {
+  return compressImage(file, maxSize);
 }
 
 // ========== 添加角色 ==========
@@ -290,34 +330,6 @@ function resetForm() {
   if (preview) { preview.innerHTML = '<span>点击上传</span>'; delete preview.dataset.avatar; }
 }
 
-// ========== 图片压缩 ==========
-function compressImage(file, maxSize = 800) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    img.onload = () => {
-      let width = img.width, height = img.height;
-      if (width > height) {
-        if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
-      } else {
-        if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
-      URL.revokeObjectURL(img.src);
-    };
-    img.onerror = () => { URL.revokeObjectURL(img.src); resolve(null); };
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function compressAvatar(file, maxSize = 256) {
-  return compressImage(file, maxSize);
-}
-
 async function previewAvatar(input) {
   if (input.files && input.files[0]) {
     const preview = document.getElementById('avatar-preview');
@@ -334,18 +346,20 @@ async function saveCharacter() {
   const nameInput = document.getElementById('char-name');
   const name = nameInput ? nameInput.value.trim() : '';
   if (!name) { alert('请输入角色名称'); return; }
-  
+
   const preview = document.getElementById('avatar-preview');
   const avatarData = preview ? preview.dataset.avatar : null;
   const sigInput = document.getElementById('char-signature');
   const descInput = document.getElementById('char-description');
-  
+
   const character = {
     id: 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
     name: name,
     avatar: avatarData || null,
     signature: sigInput ? sigInput.value.trim() : '',
     description: descInput ? descInput.value.trim() : '',
+    mes_example: document.getElementById('char-example') ? document.getElementById('char-example').value.trim() : '',
+    first_mes: document.getElementById('char-greeting') ? document.getElementById('char-greeting').value.trim() : '',
     greeting: '',
     affection: 50,
     createdAt: Date.now(),
@@ -353,7 +367,7 @@ async function saveCharacter() {
     lastMessage: null,
     settings: {}
   };
-  
+
   await saveCharacterToDB(character);
   closeAddModal();
   await renderCharacterList();
@@ -374,13 +388,13 @@ function decodeBase64UTF8(base64) {
 function extractPNGMetadata(uint8Array) {
   const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
   for (let i = 0; i < 8; i++) if (uint8Array[i] !== pngSignature[i]) throw new Error('不是有效的PNG文件');
-  
+
   let offset = 8;
   while (offset < uint8Array.length) {
     const length = (uint8Array[offset] << 24) | (uint8Array[offset + 1] << 16) | (uint8Array[offset + 2] << 8) | uint8Array[offset + 3];
     const typeBytes = uint8Array.slice(offset + 4, offset + 8);
     const type = String.fromCharCode(...typeBytes);
-    
+
     if (type === 'tEXt') {
       const chunkData = uint8Array.slice(offset + 8, offset + 8 + length);
       const nullIndex = chunkData.indexOf(0);
@@ -409,21 +423,21 @@ function importPNGCard() {
 async function handlePNGImport(input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
-  
+
   try {
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     const characterData = extractPNGMetadata(uint8Array);
-    
+
     if (!characterData) {
       alert('未找到角色卡数据，请确认是有效的PNG角色卡');
       input.value = '';
       return;
     }
-    
+
     const avatarData = await compressAvatar(file, 256);
     const data = characterData.data || characterData;
-    
+
     const character = {
       id: 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       name: data.name || '未命名角色',
@@ -444,21 +458,21 @@ async function handlePNGImport(input) {
       affection: 50,
       settings: {}
     };
-    
+
     await saveCharacterToDB(character);
-    
+
     const charBook = data.character_book || characterData.character_book;
     if (charBook && charBook.entries && charBook.entries.length > 0) {
       await saveWorldBookFromCharacter(character.id, character.name, charBook);
     }
-    
+
     await renderCharacterList();
     alert(`成功导入角色：${character.name}`);
   } catch (e) {
     console.error('PNG导入失败:', e);
     alert('导入失败：' + e.message);
   }
-  
+
   input.value = '';
   closeAddModal();
 }
@@ -499,12 +513,12 @@ function importJSONCard() {
 
 async function handleJSONImport(input) {
   if (!input.files || !input.files[0]) return;
-  
+
   try {
     const text = await input.files[0].text();
     const rawData = JSON.parse(text);
     const data = rawData.data || rawData;
-    
+
     let avatarData = null;
     if (data.avatar) {
       try {
@@ -512,7 +526,7 @@ async function handleJSONImport(input) {
         avatarData = await compressAvatar(new File([blob], 'avatar.png'), 256);
       } catch (e) { avatarData = data.avatar; }
     }
-    
+
     const character = {
       id: 'char_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       name: data.name || input.files[0].name.replace('.json', ''),
@@ -530,14 +544,14 @@ async function handleJSONImport(input) {
       lastMessage: null,
       settings: {}
     };
-    
+
     await saveCharacterToDB(character);
-    
+
     const charBook = data.character_book;
     if (charBook && charBook.entries && charBook.entries.length > 0) {
       await saveWorldBookFromCharacter(character.id, character.name, charBook);
     }
-    
+
     alert(`成功导入角色：${character.name}`);
     closeAddModal();
     await renderCharacterList();
@@ -548,12 +562,20 @@ async function handleJSONImport(input) {
   input.value = '';
 }
 
-// ========== 颜色选择器 ==========
+// ========== 颜色选择器（渐变支持）==========
+let _colorList = [];
+let _gradientDir = '135deg';
+
 function openTopbarColorPicker() {
   colorPickerType = 'topbar';
   const title = document.getElementById('color-picker-title');
   if (title) title.textContent = '顶栏颜色';
+  const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
+  _colorList = theme.topbarColors ? [...theme.topbarColors] : (theme.topbarColor ? [theme.topbarColor] : ['#12B7F5']);
+  _gradientDir = theme.topbarGradientDir || '135deg';
   renderColorPresets();
+  renderSelectedColors();
+  renderGradientDirUI();
   const modal = document.getElementById('color-picker-modal');
   if (modal) modal.classList.add('active');
 }
@@ -562,7 +584,12 @@ function openBubbleColorPicker() {
   colorPickerType = 'bubble';
   const title = document.getElementById('color-picker-title');
   if (title) title.textContent = '气泡颜色';
+  const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
+  _colorList = theme.bubbleColors ? [...theme.bubbleColors] : (theme.bubbleColor ? [theme.bubbleColor] : ['#12B7F5']);
+  _gradientDir = theme.bubbleGradientDir || '135deg';
   renderColorPresets();
+  renderSelectedColors();
+  renderGradientDirUI();
   const modal = document.getElementById('color-picker-modal');
   if (modal) modal.classList.add('active');
 }
@@ -576,47 +603,125 @@ function renderColorPresets() {
   const presets = ['#12B7F5', '#07C160', '#FA5151', '#FFC300', '#576B95', '#FF6B81', '#A29BFE', '#00CEC9', '#FD79A8', '#6C5CE7'];
   const container = document.getElementById('color-presets');
   if (!container) return;
-  const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
-  const currentColor = colorPickerType === 'topbar' ? theme.topbarColor : theme.bubbleColor;
-  container.innerHTML = presets.map(color => `<div class="color-preset ${currentColor === color ? 'selected' : ''}" style="background: ${color}" onclick="selectPresetColor('${color}')"></div>`).join('');
+  container.innerHTML = presets.map(color => `<div class="color-preset" style="background: ${color}" onclick="selectPresetColor('${color}')"></div>`).join('');
 }
 
 function selectPresetColor(color) {
-  document.querySelectorAll('.color-preset').forEach(el => el.classList.remove('selected'));
-  event.target.classList.add('selected');
   const input = document.getElementById('custom-color-input');
   if (input) input.value = color;
 }
 
-function applyColor() {
+function addColorToGradient() {
   const input = document.getElementById('custom-color-input');
   if (!input) return;
-  const color = input.value;
-  
+  _colorList.push(input.value);
+  renderSelectedColors();
+}
+
+function removeGradientColor(index) {
+  _colorList.splice(index, 1);
+  renderSelectedColors();
+}
+
+function renderSelectedColors() {
+  const container = document.getElementById('selected-colors');
+  if (!container) return;
+  if (_colorList.length === 0) {
+    container.innerHTML = '<div style="font-size:13px;color:#999;">尚未添加颜色，点击下方"添加颜色"</div>';
+    return;
+  }
+  container.innerHTML = _colorList.map((c, i) => `
+    <div class="selected-color-chip" style="background:${c};" title="${c}">
+      <div class="remove-chip" onclick="removeGradientColor(${i})">×</div>
+    </div>
+  `).join('');
+}
+
+function selectGradientDir(dir) {
+  _gradientDir = dir;
+  renderGradientDirUI();
+}
+
+function renderGradientDirUI() {
+  document.querySelectorAll('.dir-option').forEach(el => {
+    el.classList.toggle('selected', el.getAttribute('data-dir') === _gradientDir);
+  });
+}
+
+function buildGradientCSS(colors, dir) {
+  if (!colors || colors.length === 0) return '#12B7F5';
+  if (colors.length === 1) return colors[0];
+  return `linear-gradient(${dir}, ${colors.join(', ')})`;
+}
+
+function applyColor() {
+  if (_colorList.length === 0) {
+    const input = document.getElementById('custom-color-input');
+    if (input) _colorList = [input.value];
+  }
+  const gradient = buildGradientCSS(_colorList, _gradientDir);
+  const firstColor = _colorList[0] || '#12B7F5';
+
   if (colorPickerType === 'topbar') {
-    document.documentElement.style.setProperty('--topbar-color', color);
+    document.documentElement.style.setProperty('--topbar-color', firstColor);
+    document.documentElement.style.setProperty('--topbar-gradient', gradient);
     const topbar = document.getElementById('qq-topbar');
-    if (topbar) topbar.style.background = hexToRgba(color, 0.6);
+    if (topbar) topbar.style.background = _colorList.length > 1 ? gradient : hexToRgba(firstColor, 0.6);
     const preview = document.getElementById('topbar-color-preview');
-    if (preview) preview.style.background = color;
-    saveThemeSettings({ topbarColor: color });
+    if (preview) preview.style.background = gradient;
+    saveThemeSettings({ topbarColor: firstColor, topbarColors: [..._colorList], topbarGradientDir: _gradientDir });
   } else {
-    document.documentElement.style.setProperty('--bubble-sent', color);
+    document.documentElement.style.setProperty('--bubble-sent', firstColor);
+    document.documentElement.style.setProperty('--bubble-sent-gradient', gradient);
     const preview = document.getElementById('bubble-color-preview');
-    if (preview) preview.style.background = color;
-    saveThemeSettings({ bubbleColor: color });
+    if (preview) preview.style.background = gradient;
+    saveThemeSettings({ bubbleColor: firstColor, bubbleColors: [..._colorList], bubbleGradientDir: _gradientDir });
   }
   closeColorPicker();
 }
 
-// ========== 头像框 ==========
+// ========== 头像框（用户）==========
 function openAvatarFramePicker() {
-  const frames = [{ id: '', name: '无' }, { id: 'gold', name: '金色' }, { id: 'rainbow', name: '彩虹' }, { id: 'blue', name: '科技蓝' }];
+  const frames = [
+    { id: '', name: '无框', icon: '⭕' },
+    { id: 'gold', name: '金色尊贵', icon: '👑' },
+    { id: 'rainbow', name: '彩虹绚丽', icon: '🌈' },
+    { id: 'blue', name: '海洋之心', icon: '💙' },
+    { id: 'pink', name: '甜蜜粉红', icon: '💗' },
+    { id: 'purple', name: '神秘紫罗兰', icon: '💜' },
+    { id: 'green', name: '翡翠之光', icon: '💚' },
+    { id: 'red', name: '烈焰赤红', icon: '❤️' },
+    { id: 'orange', name: '暖阳橙光', icon: '🧡' },
+    { id: 'gradient', name: '星河渐变', icon: '🌌' },
+    { id: 'neon', name: '霓虹闪烁', icon: '💠' }
+  ];
   const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
-  const currentFrame = theme.avatarFrame || '';
+  const currentFrame = theme.userAvatarFrame || '';
   const grid = document.getElementById('frame-grid');
   if (grid) {
-    grid.innerHTML = frames.map(frame => `<div class="frame-option ${currentFrame === frame.id ? 'selected' : ''}" onclick="selectFrame('${frame.id}')"><div class="frame-preview ${frame.id}"></div><div class="frame-name">${frame.name}</div></div>`).join('');
+    let html = frames.map(f => `
+      <div class="frame-option ${currentFrame === f.id ? 'selected' : ''}" onclick="selectUserFrame('${f.id}')">
+        <div class="frame-preview ${f.id}" style="border-radius:50%;">${f.icon}</div>
+        <div class="frame-name">${f.icon} ${f.name}</div>
+      </div>
+    `).join('');
+    const isCustom = currentFrame.startsWith('custom:');
+    const customColor = isCustom ? currentFrame.replace('custom:', '') : '#ff6600';
+    html += `
+      <div class="frame-option ${isCustom ? 'selected' : ''}" onclick="showCustomUserFrame()">
+        <div class="frame-preview" style="border-radius:50%;${isCustom ? `box-shadow: 0 0 0 2px ${customColor}, 0 0 10px ${customColor}40;` : 'background:#eee;'}">🎨</div>
+        <div class="frame-name">🎨 自定义颜色</div>
+      </div>
+    `;
+    const savedCSS = theme.userAvatarCSS || '';
+    html += `
+      <div style="grid-column:span 2;margin-top:8px;">
+        <div style="font-size:13px;color:#666;margin-bottom:6px;">自定义头像CSS</div>
+        <textarea id="user-avatar-css-input" rows="3" placeholder=".space-avatar { border: 2px solid gold; }" style="width:100%;padding:8px;border:1px solid #e0e0e0;border-radius:8px;font-family:monospace;font-size:12px;resize:vertical;margin-bottom:8px;">${escapeHtml(savedCSS)}</textarea>
+        <button class="save-btn" onclick="saveUserAvatarCSS()">保存CSS</button>
+      </div>
+    `;
+    grid.innerHTML = html;
   }
   const modal = document.getElementById('frame-picker-modal');
   if (modal) modal.classList.add('active');
@@ -627,10 +732,24 @@ function closeFramePicker() {
   if (modal) modal.classList.remove('active');
 }
 
-function selectFrame(frameId) {
-  saveThemeSettings({ avatarFrame: frameId });
+function selectUserFrame(frameId) {
+  saveThemeSettings({ userAvatarFrame: frameId });
   closeFramePicker();
-  renderCharacterList();
+}
+
+function showCustomUserFrame() {
+  const color = prompt('输入自定义颜色值（如 #ff6600）:', '#ff6600');
+  if (color) {
+    saveThemeSettings({ userAvatarFrame: 'custom:' + color });
+    closeFramePicker();
+  }
+}
+
+function saveUserAvatarCSS() {
+  const input = document.getElementById('user-avatar-css-input');
+  if (!input) return;
+  saveThemeSettings({ userAvatarCSS: input.value });
+  alert('头像CSS已保存');
 }
 
 // ========== 壁纸管理（主界面）==========
@@ -861,32 +980,8 @@ async function callAIForDynamic(char, isSignature, config) {
 }
 
 async function renderDynamics() {
-  const list = document.getElementById('dynamics-list');
-  if (!list) return;
-  
-  const dynamics = await getAllDynamics();
-  
-  if (dynamics.length === 0) {
-    list.innerHTML = `<div class="dynamics-empty"><div class="empty-icon">📭</div><div class="empty-text">暂无动态</div><div class="empty-hint">开启角色动态功能后，角色们会在这里发布动态</div></div>`;
-    return;
-  }
-  
-  dynamics.sort((a, b) => b.timestamp - a.timestamp);
-  
-  list.innerHTML = dynamics.slice(0, 50).map(dyn => `
-    <div class="dynamic-card">
-      <div class="dynamic-header">
-        <div class="dynamic-avatar">
-          ${dyn.characterAvatar ? `<img src="${dyn.characterAvatar}" alt="">` : `<div style="width:100%;height:100%;background:#12B7F5;display:flex;align-items:center;justify-content:center;color:#fff;border-radius:50%;">${dyn.characterName?.charAt(0) || '?'}</div>`}
-        </div>
-        <div class="dynamic-info">
-          <div class="dynamic-name">${escapeHtml(dyn.characterName || '未知')}</div>
-          <div class="dynamic-time">${formatDynamicTime(dyn.timestamp)}</div>
-        </div>
-      </div>
-      <div class="dynamic-content">${escapeHtml(dyn.content)}</div>
-    </div>
-  `).join('');
+  // Legacy — now delegated to renderSpaceFeed
+  await renderSpaceFeed();
 }
 
 // ========== 工具函数 ==========
@@ -920,11 +1015,10 @@ function formatDynamicTime(timestamp) {
   return `${date.getMonth()+1}月${date.getDate()}日`;
 }
 
-// ========== ⑥ QID搜索添加MoMo好友 ==========
+// ========== QID搜索添加MoMo好友 ==========
 function showQIDSearch() {
   const form = document.getElementById('qid-search-form');
   if (form) form.style.display = 'block';
-  // Hide manual form if open
   const manualForm = document.getElementById('manual-form');
   if (manualForm) manualForm.style.display = 'none';
 }
@@ -939,7 +1033,6 @@ async function searchMomoByQID() {
     return;
   }
 
-  // Search momoUserProfiles for matching QID
   let profiles;
   try {
     profiles = JSON.parse(localStorage.getItem('momoUserProfiles') || '{}');
@@ -958,7 +1051,6 @@ async function searchMomoByQID() {
     return;
   }
 
-  // Create QQ character from MoMo profile
   await createCharacterFromMomoProfile(foundProfile);
 
   qidInput.value = '';
@@ -983,7 +1075,6 @@ async function createCharacterFromMomoProfile(profile) {
 
   await saveCharacterToDB(character);
 
-  // Import DMs from MoMo if available
   try {
     const momoDMs = JSON.parse(localStorage.getItem('momoDMs') || '{}');
     const msgs = momoDMs[profile.username];
@@ -1010,7 +1101,7 @@ async function createCharacterFromMomoProfile(profile) {
   return character;
 }
 
-// ========== ⑦ 从MoMo跳转自动添加好友 ==========
+// ========== 从MoMo跳转自动添加好友 ==========
 async function checkMomoFriendImport() {
   const data = sessionStorage.getItem('momoToQQFriend');
   if (!data) return;
@@ -1032,5 +1123,388 @@ async function checkMomoFriendImport() {
     setTimeout(() => notification.remove(), 3000);
   } catch (e) {
     console.error('MoMo好友导入失败:', e);
+  }
+}
+
+// ========== 空间页 ==========
+function initSpacePage() {
+  // 封面
+  const coverImg = localStorage.getItem('spaceCoverImage');
+  const imgEl = document.getElementById('space-cover-img');
+  const placeholder = document.getElementById('space-cover-placeholder');
+  if (coverImg && imgEl) {
+    imgEl.src = coverImg;
+    imgEl.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+  }
+  // 头像
+  const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+  const avatarEl = document.getElementById('space-avatar');
+  if (avatarEl) {
+    if (settings.avatar) {
+      avatarEl.innerHTML = `<img src="${settings.avatar}">`;
+    } else {
+      avatarEl.textContent = '👤';
+    }
+    // 应用头像框
+    const theme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
+    const frame = theme.userAvatarFrame || '';
+    if (frame) {
+      if (frame.startsWith('custom:')) {
+        const c = frame.replace('custom:', '');
+        avatarEl.style.boxShadow = `0 0 0 3px ${c}, 0 0 10px ${c}40`;
+      } else if (frame === 'rainbow') {
+        avatarEl.style.animation = 'rainbowFrame 2s linear infinite';
+      } else if (frame === 'gradient') {
+        avatarEl.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+      } else if (frame === 'neon') {
+        avatarEl.style.boxShadow = '0 0 0 3px #0ff, 0 0 10px #0ff, 0 0 20px rgba(0,255,255,0.3)';
+      } else if (frame) {
+        const colorMap = { gold:'#ffd700', blue:'#12B7F5', pink:'#f48fb1', purple:'#ce93d8', green:'#4caf50', red:'#f44336', orange:'#ff9800' };
+        const c = colorMap[frame];
+        if (c) avatarEl.style.boxShadow = `0 0 0 3px ${c}, 0 0 10px ${c}80`;
+      }
+    }
+  }
+  // 用户名
+  const nameEl = document.getElementById('space-username');
+  if (nameEl) nameEl.textContent = settings.userName || '我';
+}
+
+function uploadSpaceCover() {
+  document.getElementById('space-cover-input').click();
+}
+
+async function handleSpaceCoverSelect(input) {
+  if (!input.files || !input.files[0]) return;
+  const compressed = await compressImage(input.files[0], 800);
+  if (compressed) {
+    localStorage.setItem('spaceCoverImage', compressed);
+    const imgEl = document.getElementById('space-cover-img');
+    const placeholder = document.getElementById('space-cover-placeholder');
+    if (imgEl) { imgEl.src = compressed; imgEl.style.display = 'block'; }
+    if (placeholder) placeholder.style.display = 'none';
+  }
+  input.value = '';
+}
+
+function uploadSpaceAvatar() {
+  document.getElementById('space-avatar-input').click();
+}
+
+async function handleSpaceAvatarSelect(input) {
+  if (!input.files || !input.files[0]) return;
+  const compressed = await compressAvatar(input.files[0], 256);
+  if (compressed) {
+    const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+    settings.avatar = compressed;
+    localStorage.setItem('userChatSettings', JSON.stringify(settings));
+    const avatarEl = document.getElementById('space-avatar');
+    if (avatarEl) avatarEl.innerHTML = `<img src="${compressed}">`;
+  }
+  input.value = '';
+}
+
+// ========== 动态流渲染 ==========
+async function renderSpaceFeed() {
+  const feed = document.getElementById('space-feed');
+  if (!feed) return;
+
+  const dynamics = await getAllDynamics();
+  if (dynamics.length === 0) {
+    feed.innerHTML = `<div class="dynamics-empty"><div class="empty-icon">📭</div><div class="empty-text">暂无动态</div><div class="empty-hint">开启角色动态功能后，角色们会在这里发布动态</div></div>`;
+    return;
+  }
+
+  dynamics.sort((a, b) => b.timestamp - a.timestamp);
+  const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+
+  feed.innerHTML = dynamics.slice(0, 50).map(dyn => {
+    const isUser = dyn.isUserPost;
+    const avatar = isUser ? (settings.avatar || '') : (dyn.characterAvatar || '');
+    const name = isUser ? (dyn.userName || '我') : (dyn.characterName || '未知');
+    const avatarHTML = avatar
+      ? `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : `<div style="width:100%;height:100%;background:#12B7F5;display:flex;align-items:center;justify-content:center;color:#fff;border-radius:50%;font-size:14px;">${name.charAt(0)}</div>`;
+
+    // Images
+    let imagesHTML = '';
+    if (dyn.images && dyn.images.length > 0) {
+      const cols = dyn.images.length === 1 ? 1 : dyn.images.length === 2 ? 2 : 3;
+      imagesHTML = `<div class="dynamic-images cols-${cols}">${dyn.images.map(img => `<img src="${img}" onclick="viewDynImage('${img.replace(/'/g, "\\'")}')">`).join('')}</div>`;
+    }
+
+    // Likes
+    const likes = dyn.likes || [];
+    const userLiked = likes.some(l => l.isUser);
+    const likeNames = likes.map(l => l.name).join(', ');
+
+    // Comments
+    const comments = dyn.comments || [];
+    const commentsHTML = comments.map(c => `
+      <div class="dynamic-comment">
+        <span class="dynamic-comment-name">${escapeHtml(c.name)}</span>
+        <span class="dynamic-comment-text">${escapeHtml(c.text)}</span>
+      </div>
+    `).join('');
+
+    return `
+      <div class="dynamic-card" id="dyn-${dyn.id}">
+        <button class="dynamic-delete" onclick="deletePost('${dyn.id}')">✕</button>
+        <div class="dynamic-header">
+          <div class="dynamic-avatar">${avatarHTML}</div>
+          <div class="dynamic-info">
+            <div class="dynamic-name">${escapeHtml(name)}</div>
+            <div class="dynamic-time">${formatDynamicTime(dyn.timestamp)}</div>
+          </div>
+        </div>
+        <div class="dynamic-content">${escapeHtml(dyn.content)}</div>
+        ${imagesHTML}
+        <div class="dynamic-actions">
+          <button class="dynamic-action-btn ${userLiked ? 'liked' : ''}" onclick="toggleLike('${dyn.id}')">
+            ${userLiked ? '❤️' : '🤍'} ${likes.length > 0 ? likes.length : ''}
+          </button>
+          <button class="dynamic-action-btn" onclick="toggleCommentInput('${dyn.id}')">
+            💬 ${comments.length > 0 ? comments.length : ''}
+          </button>
+        </div>
+        ${likeNames ? `<div style="font-size:12px;color:#999;padding:4px 0;">❤️ ${escapeHtml(likeNames)}</div>` : ''}
+        ${comments.length > 0 ? `<div class="dynamic-comments">${commentsHTML}</div>` : ''}
+        <div class="dynamic-comment-input" id="comment-input-${dyn.id}" style="display:none;">
+          <input type="text" id="comment-text-${dyn.id}" placeholder="写评论..." onkeydown="if(event.key==='Enter')submitComment('${dyn.id}')">
+          <button onclick="submitComment('${dyn.id}')">发送</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function viewDynImage(src) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+  overlay.onclick = () => overlay.remove();
+  overlay.innerHTML = `<img src="${src}" style="max-width:90%;max-height:90%;object-fit:contain;">`;
+  document.body.appendChild(overlay);
+}
+
+// ========== 新建动态 ==========
+let _postImages = [];
+
+function openNewPostEditor() {
+  _postImages = [];
+  const textInput = document.getElementById('post-text-input');
+  if (textInput) textInput.value = '';
+  const preview = document.getElementById('post-image-preview');
+  if (preview) preview.innerHTML = '';
+  const modal = document.getElementById('new-post-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeNewPostEditor() {
+  const modal = document.getElementById('new-post-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handlePostImageSelect(input) {
+  if (!input.files) return;
+  for (const file of input.files) {
+    const compressed = await compressImage(file, 600);
+    if (compressed) _postImages.push(compressed);
+  }
+  const preview = document.getElementById('post-image-preview');
+  if (preview) {
+    preview.innerHTML = _postImages.map(img => `<img class="post-img-thumb" src="${img}">`).join('');
+  }
+  input.value = '';
+}
+
+async function submitNewPost() {
+  const textInput = document.getElementById('post-text-input');
+  const content = textInput ? textInput.value.trim() : '';
+  if (!content && _postImages.length === 0) { alert('请输入内容或添加图片'); return; }
+
+  const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+  const dynamic = {
+    id: 'dyn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+    content: content,
+    images: [..._postImages],
+    isUserPost: true,
+    userName: settings.userName || '我',
+    userAvatar: settings.avatar || '',
+    characterId: '_user_',
+    characterName: settings.userName || '我',
+    characterAvatar: settings.avatar || '',
+    timestamp: Date.now(),
+    likes: [],
+    comments: []
+  };
+
+  await saveDynamic(dynamic);
+
+  // Sync to all character chats
+  try {
+    const characters = await getAllCharacters();
+    const db = await openChatDB();
+    const snippet = content.length > 20 ? content.substring(0, 20) + '...' : content;
+    for (const char of characters) {
+      const tx = db.transaction(MSG_STORE, 'readwrite');
+      const store = tx.objectStore(MSG_STORE);
+      store.put({
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        chatId: char.id,
+        type: 'system',
+        content: `[dynamic:${dynamic.id}:${snippet}]`,
+        timestamp: Date.now()
+      });
+    }
+  } catch (e) { console.error('同步动态到聊天失败:', e); }
+
+  closeNewPostEditor();
+  await renderSpaceFeed();
+}
+
+// ========== 点赞 ==========
+async function toggleLike(dynId) {
+  const db = await openChatDB();
+  const tx = db.transaction(DYNAMIC_STORE, 'readwrite');
+  const store = tx.objectStore(DYNAMIC_STORE);
+  const dyn = await new Promise((res, rej) => { const r = store.get(dynId); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  if (!dyn) return;
+
+  if (!dyn.likes) dyn.likes = [];
+  const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+  const idx = dyn.likes.findIndex(l => l.isUser);
+  const wasLiked = idx >= 0;
+
+  if (wasLiked) {
+    dyn.likes.splice(idx, 1);
+  } else {
+    dyn.likes.push({ name: settings.userName || '我', isUser: true });
+  }
+
+  await new Promise((res, rej) => { const r = store.put(dyn); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+
+  // If user post and new like, characters may auto-like
+  if (dyn.isUserPost && !wasLiked) {
+    try {
+      const characters = await getAllCharacters();
+      for (const char of characters) {
+        const prob = (char.affection || 50) * 0.5 / 100;
+        if (Math.random() < prob) {
+          dyn.likes.push({ name: char.name, characterId: char.id });
+        }
+      }
+      await saveDynamic(dyn);
+    } catch (e) { console.error('角色自动点赞失败:', e); }
+  }
+
+  await renderSpaceFeed();
+}
+
+// ========== 评论 ==========
+function toggleCommentInput(dynId) {
+  const el = document.getElementById('comment-input-' + dynId);
+  if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+
+async function submitComment(dynId) {
+  const input = document.getElementById('comment-text-' + dynId);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const db = await openChatDB();
+  const tx = db.transaction(DYNAMIC_STORE, 'readwrite');
+  const store = tx.objectStore(DYNAMIC_STORE);
+  const dyn = await new Promise((res, rej) => { const r = store.get(dynId); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  if (!dyn) return;
+
+  if (!dyn.comments) dyn.comments = [];
+  const settings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+  dyn.comments.push({ name: settings.userName || '我', text: text, isUser: true, timestamp: Date.now() });
+  await saveDynamic(dyn);
+
+  input.value = '';
+
+  // AI reply
+  if (!dyn.isUserPost && dyn.characterId) {
+    // Character dynamic — reply from that character
+    callAIForComment(dyn.characterId, dyn.content, text, dynId);
+  } else if (dyn.isUserPost) {
+    // User dynamic — random characters may comment
+    try {
+      const characters = await getAllCharacters();
+      for (const char of characters) {
+        const prob = (char.affection || 50) * 0.5 / 100;
+        if (Math.random() < prob) {
+          callAIForComment(char.id, dyn.content, text, dynId);
+        }
+      }
+    } catch (e) { console.error('角色自动评论失败:', e); }
+  }
+
+  await renderSpaceFeed();
+}
+
+async function callAIForComment(charId, dynContent, userComment, dynId) {
+  try {
+    const characters = await getAllCharacters();
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+
+    const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+    if (!apiConfig.key || !apiConfig.provider) return;
+
+    let endpoint = apiConfig.provider;
+    if (!endpoint.startsWith('http')) endpoint = 'https://' + endpoint;
+    if (!endpoint.includes('/v1/chat/completions')) endpoint = endpoint.replace(/\/$/, '') + '/v1/chat/completions';
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.key}` },
+      body: JSON.stringify({
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: `你是${char.name}。${char.description || ''}。请用1-2条短句回复动态评论，不要使用标签。` },
+          { role: 'user', content: `动态内容："${dynContent}"。有人评论了："${userComment}"。请回复：` }
+        ],
+        temperature: 0.9,
+        max_tokens: 300
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) return;
+
+    const dyn = await new Promise((res, rej) => {
+      const db2tx = chatDB.transaction(DYNAMIC_STORE, 'readwrite');
+      const s = db2tx.objectStore(DYNAMIC_STORE);
+      const r = s.get(dynId);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    if (!dyn) return;
+    if (!dyn.comments) dyn.comments = [];
+    dyn.comments.push({ name: char.name, text: reply, characterId: char.id, timestamp: Date.now() });
+    await saveDynamic(dyn);
+    await renderSpaceFeed();
+  } catch (e) {
+    console.error('AI评论回复失败:', e);
+  }
+}
+
+// ========== 删除动态 ==========
+async function deletePost(dynId) {
+  if (!confirm('确定删除这条动态？')) return;
+  try {
+    const db = await openChatDB();
+    const tx = db.transaction(DYNAMIC_STORE, 'readwrite');
+    const store = tx.objectStore(DYNAMIC_STORE);
+    store.delete(dynId);
+    await new Promise((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    await renderSpaceFeed();
+  } catch (e) {
+    console.error('删除动态失败:', e);
   }
 }

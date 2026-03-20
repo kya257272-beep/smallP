@@ -65,11 +65,13 @@ window.getDesktopLayout = function() {
     return [
       { id: 'api', name: 'API配置', icon: '🎀', href: 'api-config.html', page: 0, position: 0 },
       { id: 'chat', name: 'QQ', icon: '🐧', href: 'chat.html', page: 0, position: 1 },
-      { id: 'preset', name: '预设配置', icon: '📝', href: 'preset.html', page: 0, position: 2 },
+      { id: 'wallpaper', name: '壁纸', icon: '🎨', href: 'wallpaper.html', page: 0, position: 2 },
       { id: 'music', name: '音乐', icon: '🎶', href: 'music.html', page: 0, position: 3 },
-      { id: 'wallpaper', name: '壁纸', icon: '🎨', href: 'wallpaper.html', page: 0, position: 4 },
-      { id: 'worldbook', name: '世界书', icon: '📚', href: 'worldbook.html', page: 0, position: 5 },
-      { id: 'momo', name: 'MoMo', icon: '🌸', href: 'momo.html', page: 0, position: 6 }
+      { id: 'offline', name: '线下', icon: '🍀', href: 'offline-mode.html', page: 0, position: 4 },
+      { id: 'momo', name: 'momo', icon: '🌸', href: 'momo.html', page: 0, position: 5 },
+      { id: 'preset', name: '预设配置', icon: '📝', href: 'preset.html', page: 1, position: 0 },
+      { id: 'worldbook', name: '世界书', icon: '📚', href: 'worldbook.html', page: 1, position: 1 },
+      { id: 'diary', name: '日记', icon: '🗓', href: 'diary.html', page: 1, position: 2 }
     ];
   }
 
@@ -79,16 +81,25 @@ window.getDesktopLayout = function() {
 
   async function loadApps() {
     let configApps = [];
+    let configVersion = 0;
     try {
       const response = await fetch(APPS_CONFIG_FILE + '?t=' + Date.now());
       if (response.ok) {
         const config = await response.json();
         configApps = config.apps || [];
+        configVersion = parseInt(config.layoutVersion) || 0;
       }
     } catch (e) {
       configApps = getDefaultApps();
     }
     if (configApps.length === 0) configApps = getDefaultApps();
+
+    // Check layout version - force re-layout if apps.json version is newer
+    const savedVersion = parseInt(localStorage.getItem('desktopLayoutVersion') || '0');
+    const forceRelayout = configVersion > savedVersion;
+    if (forceRelayout) {
+      localStorage.setItem('desktopLayoutVersion', String(configVersion));
+    }
 
     const saved = localStorage.getItem(STORAGE_KEY);
     let savedApps = [];
@@ -97,6 +108,13 @@ window.getDesktopLayout = function() {
     }
 
     if (savedApps.length > 0) {
+      // Force re-layout from config when version bumped
+      if (forceRelayout) {
+        apps = configApps;
+        saveApps();
+        return;
+      }
+
       const savedIds = new Set(savedApps.map(a => a.id));
       
       // 【关键修复】同步已有应用的 href、name、icon（从 apps.json 更新到本地缓存）

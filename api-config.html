@@ -679,6 +679,27 @@
         <div class="binding-test-result" id="test-result-image"></div>
       </div>
 
+      <!-- 线下模式模型 -->
+      <div class="binding-row" data-func="offline">
+        <div class="binding-label">
+          <span class="binding-icon">🍀</span>
+          <div class="binding-info">
+            <span class="binding-name">线下模式模型</span>
+            <span class="binding-desc">线下模式VN对话</span>
+          </div>
+        </div>
+        <div class="binding-selects">
+          <select id="bind-offline-config" class="bind-config-select" data-func="offline">
+            <option value="">选择配置</option>
+          </select>
+          <select id="bind-offline-model" class="bind-model-select" data-func="offline">
+            <option value="">选择模型</option>
+          </select>
+          <button class="btn-test btn-small" data-func="offline">🧪 测试</button>
+        </div>
+        <div class="binding-test-result" id="test-result-offline"></div>
+      </div>
+
       <div class="binding-actions">
         <button id="save-bindings" class="btn-save-bindings">💾 保存绑定设置</button>
       </div>

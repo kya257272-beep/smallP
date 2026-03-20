@@ -5,164 +5,2449 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>线下模式</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+
     body {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 100vw; height: 100vh; overflow: hidden;
+      background: #000;
       font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
-      display: flex;
-      flex-direction: column;
+      touch-action: none;
     }
-    
-    .topbar {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
+
+    /* ===== 背景 ===== */
+    #vn-bg {
+      position: absolute; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
     }
-    
-    .back-btn {
-      width: 36px;
-      height: 36px;
-      border: none;
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      border-radius: 50%;
-      font-size: 18px;
+
+    /* ===== 角色立绘 ===== */
+    #vn-sprite {
+      position: absolute; z-index: 1;
+      bottom: 0; left: 50%; transform: translateX(-50%);
+      max-height: 85vh; max-width: 90vw;
+      object-fit: contain;
+      touch-action: none;
+      display: none;
+    }
+    #vn-sprite.positioned {
+      transform: none;
+    }
+
+    /* ===== 对话框 ===== */
+    #vn-dialog {
+      position: fixed; z-index: 5;
+      bottom: 20px; left: 5%; width: 90%;
+      min-height: 160px; max-height: 35vh;
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 16px;
+      padding: 50px 20px 20px;
+      display: flex; flex-direction: column;
+    }
+
+    .dialog-btns {
+      position: absolute; top: -36px; right: 8px;
+      display: flex; gap: 6px;
+    }
+    .dialog-btns button {
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,0.65);
+      border: none; border-radius: 6px;
+      color: #222; font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+    .dialog-btns button:active { background: rgba(255,255,255,0.85); }
+
+    .dialog-name {
+      position: absolute; top: 14px; left: 20px;
+      font-size: 15px; font-weight: 600;
+      color: #555;
+    }
+
+    .dialog-text {
+      flex: 1; overflow: hidden;
+      font-size: 16px; color: #222;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+    .dialog-text.placeholder {
+      color: rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
       cursor: pointer;
     }
-    
-    .topbar-title {
-      flex: 1;
-      text-align: center;
-      font-size: 17px;
-      font-weight: 600;
-      color: #fff;
-      margin-right: 36px;
+    .dialog-text.loading {
+      color: rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
     }
-    
-    .content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-      text-align: center;
+
+    .dialog-next {
+      position: absolute; bottom: 10px; right: 16px;
+      font-size: 14px; color: #222;
+      animation: blink 2s infinite;
+      cursor: pointer; display: none;
     }
-    
-    .icon {
-      font-size: 80px;
-      margin-bottom: 24px;
-      animation: float 3s ease-in-out infinite;
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ===== 侧栏 ===== */
+    #vn-sidebar {
+      position: fixed; z-index: 10;
+      left: 8px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 10px;
     }
-    
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+    #vn-sidebar button {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,0.45);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border: none; border-radius: 8px;
+      color: #222; font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
-    
-    .title {
-      font-size: 24px;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 12px;
+    #vn-sidebar button:active { background: rgba(255,255,255,0.7); }
+
+    /* ===== 弹层通用 ===== */
+    .vn-overlay {
+      position: fixed; inset: 0; z-index: 20;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
     }
-    
-    .desc {
-      font-size: 15px;
-      color: rgba(255,255,255,0.8);
-      line-height: 1.6;
-      max-width: 300px;
-      margin-bottom: 32px;
-    }
-    
-    .features {
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
+    .vn-overlay.active { display: flex; }
+
+    .vn-panel {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
       border-radius: 16px;
       padding: 20px;
-      width: 100%;
-      max-width: 320px;
-      text-align: left;
+      max-width: 340px; width: 90%;
+      max-height: 80vh; overflow-y: auto;
+      color: #222;
     }
-    
-    .features-title {
-      font-size: 14px;
-      color: rgba(255,255,255,0.7);
-      margin-bottom: 12px;
+    .vn-panel h3 { font-size: 16px; margin-bottom: 14px; font-weight: 600; color: #333; }
+
+    /* ===== 历史弹窗(居中) ===== */
+    #vn-history-overlay {
+      position: fixed; inset: 0; z-index: 20;
+      background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
     }
-    
-    .feature-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+    #vn-history-overlay.active { display: flex; }
+    #vn-history-panel {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      width: 92%; max-width: 400px;
+      height: 75vh; max-height: 600px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
     }
-    
-    .feature-item:last-child { border-bottom: none; }
-    .feature-item .icon-small { font-size: 20px; }
-    .feature-item span { font-size: 14px; color: #fff; }
-    
-    .coming-soon {
-      margin-top: 40px;
-      padding: 12px 32px;
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      border: none;
-      border-radius: 24px;
-      font-size: 15px;
-      font-weight: 500;
+    .history-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
     }
+    .history-header h3 { font-size: 16px; font-weight: 600; color: #333; margin: 0; }
+    .history-header-btns { display: flex; gap: 8px; align-items: center; }
+    .history-header-btns button {
+      background: none; border: none; font-size: 18px; cursor: pointer; color: #555; padding: 4px;
+    }
+    .history-header-btns button:active { color: #000; }
+    #history-list {
+      flex: 1; overflow-y: auto; padding: 12px 16px;
+    }
+    .history-msg {
+      margin-bottom: 12px; padding: 10px 12px;
+      border-radius: 10px; position: relative;
+      max-width: 85%; word-break: break-all;
+      font-size: 14px; line-height: 1.5;
+    }
+    .history-msg.role-assistant {
+      background: rgba(0,0,0,0.06); color: #333;
+      margin-right: auto;
+    }
+    .history-msg.role-user {
+      background: rgba(59,130,246,0.12); color: #333;
+      margin-left: auto;
+    }
+    .history-msg .msg-role {
+      font-size: 11px; color: #999; margin-bottom: 4px;
+    }
+    .history-msg .msg-content { font-size: 14px; }
+    .history-msg .msg-actions {
+      position: absolute; top: 6px; right: 6px;
+      display: flex; gap: 4px; opacity: 0.5;
+    }
+    .history-msg:hover .msg-actions, .history-msg:active .msg-actions { opacity: 1; }
+    .history-msg .msg-actions button {
+      background: none; border: none; font-size: 13px; cursor: pointer; padding: 2px 4px;
+    }
+
+    /* ===== 输入覆层 ===== */
+    #vn-input-overlay {
+      position: fixed; z-index: 15;
+      bottom: 0; left: 0; width: 100%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      display: none;
+      gap: 10px; align-items: flex-end;
+    }
+    #vn-input-overlay.active { display: flex; }
+    #vn-input-overlay textarea {
+      flex: 1; background: rgba(0,0,0,0.06);
+      border: none; border-radius: 10px;
+      color: #222; font-size: 15px;
+      padding: 10px 12px;
+      resize: none; min-height: 40px; max-height: 100px;
+      font-family: inherit;
+    }
+    #vn-input-overlay textarea::placeholder { color: rgba(0,0,0,0.35); }
+    #vn-input-overlay button {
+      background: rgba(0,0,0,0.08); border: none; border-radius: 10px;
+      color: #222; font-size: 14px; font-weight: 600;
+      padding: 10px 16px; cursor: pointer;
+      white-space: nowrap;
+    }
+    #vn-input-overlay button:active { background: rgba(0,0,0,0.15); }
+
+    /* ===== 角色选择列表 ===== */
+    .char-list-overlay {
+      position: fixed; inset: 0; z-index: 30;
+      background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .char-list-panel {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 20px; width: 85%;
+      max-width: 340px; max-height: 75vh;
+      overflow-y: auto;
+    }
+    .char-list-panel h3 {
+      color: #333; font-size: 17px;
+      margin-bottom: 14px; text-align: center;
+    }
+    .char-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .char-item:active { background: rgba(0,0,0,0.06); }
+    .char-item.selected { background: rgba(0,0,0,0.08); }
+    .char-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.06);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; overflow: hidden; flex-shrink: 0;
+      color: #555;
+    }
+    .char-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .char-name { color: #333; font-size: 15px; }
+    .char-list-empty {
+      color: rgba(0,0,0,0.4); text-align: center;
+      padding: 30px 0; font-size: 14px;
+    }
+
+    /* ===== 选择网格（立绘/背景） ===== */
+    .picker-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; margin-top: 10px;
+    }
+    .picker-item {
+      aspect-ratio: 3/4; border-radius: 10px;
+      overflow: hidden; cursor: pointer;
+      background: rgba(0,0,0,0.05);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; border: 2px solid transparent;
+    }
+    .picker-item.active { border-color: #888; }
+    .picker-item img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .picker-item .label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.7);
+      color: #333; font-size: 11px;
+      text-align: center; padding: 3px 0;
+    }
+    .picker-item .del-btn {
+      position: absolute; top: 2px; right: 2px;
+      background: rgba(0,0,0,0.5); color: #fff;
+      border: none; border-radius: 50%;
+      width: 20px; height: 20px; font-size: 12px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .picker-item.empty { color: rgba(0,0,0,0.3); font-size: 12px; }
+
+    /* bg picker extras */
+    .bg-option {
+      padding: 12px; border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 8px;
+      background: rgba(0,0,0,0.04);
+    }
+    .bg-option:active { background: rgba(0,0,0,0.1); }
+    .bg-option .swatch {
+      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+    }
+    .bg-option .name { color: #333; font-size: 14px; }
+
+    /* dialog style selector */
+    .style-option {
+      padding: 10px 14px; border-radius: 8px;
+      cursor: pointer; color: #333; font-size: 14px;
+      margin-bottom: 6px;
+      background: rgba(0,0,0,0.04);
+    }
+    .style-option:active, .style-option.active {
+      background: rgba(0,0,0,0.1);
+    }
+
+    /* font size selector */
+    .font-option {
+      display: inline-block; padding: 8px 14px;
+      border-radius: 8px; cursor: pointer; color: #333;
+      margin: 4px;
+      background: rgba(0,0,0,0.04);
+    }
+    .font-option:active, .font-option.active {
+      background: rgba(0,0,0,0.1);
+    }
+
+    /* dialog style: noframe */
+    #vn-dialog.style-noframe {
+      background: none; backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    #vn-dialog.style-noframe .dialog-text {
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* dialog style: classic */
+    #vn-dialog.style-classic {
+      background: rgba(255,255,255,0.75);
+      border: 1px solid rgba(0,0,0,0.15);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    /* regex panel */
+    .regex-row {
+      display: flex; gap: 8px; margin-bottom: 10px;
+    }
+    .regex-row input, .regex-row textarea {
+      flex: 1; background: rgba(0,0,0,0.06);
+      border: none; border-radius: 8px;
+      color: #222; padding: 8px 10px;
+      font-size: 14px; font-family: inherit;
+    }
+    .regex-row input::placeholder, .regex-row textarea::placeholder { color: rgba(0,0,0,0.35); }
+    .regex-apply {
+      background: rgba(0,0,0,0.08); border: none; border-radius: 8px;
+      color: #222; font-size: 13px; font-weight: 600;
+      padding: 8px 14px; cursor: pointer;
+    }
+    .regex-rule-card {
+      background: rgba(0,0,0,0.04); border-radius: 8px;
+      padding: 10px 12px; margin-bottom: 8px;
+    }
+    .regex-rule-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .regex-rule-name { font-size: 13px; font-weight: 600; color: #333; }
+    .regex-rule-actions { display: flex; gap: 6px; align-items: center; }
+    .regex-rule-actions button {
+      background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 4px;
+    }
+    .regex-rule-preview {
+      font-size: 12px; color: #888; margin-top: 4px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .regex-rule-preview code {
+      background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 3px; font-size: 11px;
+    }
+    .mini-switch { position: relative; display: inline-block; width: 32px; height: 18px; }
+    .mini-switch input { opacity: 0; width: 0; height: 0; }
+    .mini-slider {
+      position: absolute; inset: 0; background: #ccc; border-radius: 18px;
+      transition: 0.2s; cursor: pointer;
+    }
+    .mini-slider:before {
+      content: ''; position: absolute; height: 14px; width: 14px;
+      left: 2px; bottom: 2px; background: #fff; border-radius: 50%;
+      transition: 0.2s;
+    }
+    .mini-switch input:checked + .mini-slider { background: #4CAF50; }
+    .mini-switch input:checked + .mini-slider:before { transform: translateX(14px); }
+
+    /* ===== 立绘缩放按钮 ===== */
+    #vn-sprite-zoom {
+      position: fixed; z-index: 10;
+      right: 8px; top: 50%; transform: translateY(-50%);
+      display: none; flex-direction: column; gap: 6px;
+    }
+    #vn-sprite-zoom.active { display: flex; }
+    #vn-sprite-zoom button {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.45);
+      backdrop-filter: blur(4px);
+      border: none; border-radius: 8px;
+      color: #222; font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #vn-sprite-zoom button:active { background: rgba(255,255,255,0.7); }
+
+    /* ===== 折叠栏 ===== */
+    .cl-section { margin-bottom: 10px; }
+    .cl-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-radius: 8px;
+      background: rgba(0,0,0,0.05); cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #333;
+    }
+    .cl-section-header .arrow {
+      font-size: 12px; color: #999;
+      transition: transform 0.2s;
+    }
+    .cl-section.open .cl-section-header .arrow { transform: rotate(90deg); }
+    .cl-section-body {
+      display: none; padding: 8px 0;
+    }
+    .cl-section.open .cl-section-body { display: block; }
+    .cl-sprite-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px; margin-top: 6px;
+    }
+    .cl-sprite-item {
+      aspect-ratio: 3/4; border-radius: 8px; overflow: hidden;
+      cursor: pointer; background: rgba(0,0,0,0.04);
+      border: 2px solid transparent; position: relative;
+    }
+    .cl-sprite-item.selected { border-color: #888; }
+    .cl-sprite-item img { width: 100%; height: 100%; object-fit: cover; }
+    .cl-sprite-item .label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.7);
+      color: #333; font-size: 10px; text-align: center; padding: 2px 0;
+    }
+    .cl-confirm-btn {
+      width: 100%; padding: 12px; margin-top: 14px;
+      background: rgba(0,0,0,0.08); border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 600; color: #333;
+      cursor: pointer;
+    }
+    .cl-confirm-btn:active { background: rgba(0,0,0,0.15); }
+    .cl-confirm-btn:disabled {
+      opacity: 0.4; cursor: default;
+    }
+
+    /* ===== 音乐播放器浮层 ===== */
+    #vn-music-player {
+      position: fixed; z-index: 18;
+      bottom: 200px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      padding: 14px 20px;
+      display: none; flex-direction: column; align-items: center;
+      gap: 10px; min-width: 240px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    #vn-music-player.active { display: flex; }
+    .music-track-name {
+      font-size: 14px; color: #333; font-weight: 500;
+      text-align: center; max-width: 200px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .music-controls {
+      display: flex; gap: 16px; align-items: center;
+    }
+    .music-controls button {
+      background: none; border: none;
+      font-size: 22px; cursor: pointer; color: #333;
+      padding: 4px 8px;
+    }
+    .music-controls button:active { color: #000; }
+    .music-list-wrap {
+      width: 100%; max-height: 150px; overflow-y: auto;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      padding-top: 8px; margin-top: 4px;
+    }
+    .music-list-item {
+      padding: 6px 8px; font-size: 13px; color: #555;
+      border-radius: 6px; cursor: pointer;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .music-list-item:active, .music-list-item.active {
+      background: rgba(0,0,0,0.08); color: #222;
+    }
+
+    /* ===== 退出遮罩 ===== */
+    #vn-exit-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px;
+    }
+    #vn-exit-overlay.active { display: flex; }
+
+    /* ===== 自定义CSS注入 ===== */
+    #vn-custom-css { }
+
+    /* ===== 自定义字体 ===== */
+    #vn-custom-font { }
+
+    /* form group for style/font panels */
+    .vn-form-group {
+      margin-top: 12px; margin-bottom: 8px;
+    }
+    .vn-form-group label {
+      display: block; font-size: 13px; color: #666; margin-bottom: 4px;
+    }
+    .vn-form-group input, .vn-form-group textarea {
+      width: 100%; background: rgba(0,0,0,0.06);
+      border: none; border-radius: 8px;
+      color: #222; padding: 8px 10px;
+      font-size: 14px; font-family: inherit;
+    }
+    .vn-form-group textarea { resize: vertical; min-height: 60px; }
+    .vn-form-group input::placeholder, .vn-form-group textarea::placeholder {
+      color: rgba(0,0,0,0.35);
+    }
+    .vn-save-btn {
+      width: 100%; padding: 10px; margin-top: 12px;
+      background: rgba(0,0,0,0.08); border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 600; color: #333; cursor: pointer;
+    }
+    .vn-save-btn:active { background: rgba(0,0,0,0.15); }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <button class="back-btn" onclick="goBack()">←</button>
-    <div class="topbar-title">线下模式</div>
-  </div>
-  
-  <div class="content">
-    <div class="icon">📴</div>
-    <h1 class="title">线下模式</h1>
-    <p class="desc">在这里，角色将"离开"聊天，你可以安排他们的线下活动和日程</p>
-    
-    <div class="features">
-      <div class="features-title">即将支持的功能</div>
-      <div class="feature-item">
-        <span class="icon-small">📅</span>
-        <span>角色日程安排</span>
-      </div>
-      <div class="feature-item">
-        <span class="icon-small">🏃</span>
-        <span>模拟角色活动</span>
-      </div>
-      <div class="feature-item">
-        <span class="icon-small">💭</span>
-        <span>离线时的想念消息</span>
-      </div>
-      <div class="feature-item">
-        <span class="icon-small">🎁</span>
-        <span>回归惊喜事件</span>
-      </div>
+
+  <!-- 背景 -->
+  <div id="vn-bg" style="background:#000;"></div>
+
+  <!-- 立绘 -->
+  <img id="vn-sprite" src="" alt="" />
+
+  <!-- 对话框 -->
+  <div id="vn-dialog">
+    <div class="dialog-btns">
+      <button onclick="VN.openStylePicker()" title="样式">样</button>
+      <button onclick="VN.openFontPicker()" title="字号">字</button>
+      <button onclick="VN.editCurrentText()" title="编辑">改</button>
+      <button onclick="VN.openRegex()" title="正则替换">正</button>
     </div>
-    
-    <button class="coming-soon">🚧 功能开发中...</button>
+    <div class="dialog-name" id="dialog-name"></div>
+    <div class="dialog-text placeholder" id="dialog-text" onclick="VN.onDialogClick()">输入文字开始对话</div>
+    <div class="dialog-next" id="dialog-next" onclick="VN.nextPage()">▼</div>
   </div>
-  
-  <script>
-    function goBack() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const charId = urlParams.get('id');
-      if (charId) {
-        window.location.href = 'chat-room.html?id=' + charId;
-      } else {
-        window.history.back();
+
+  <!-- 侧栏 -->
+  <div id="vn-sidebar">
+    <button onclick="VN.goBack()" title="退出">←</button>
+    <button onclick="VN.openBgPicker()" title="背景">❀</button>
+    <button onclick="VN.openSpritePicker()" title="立绘">♝</button>
+    <button onclick="VN.toggleMusicPlayer()" title="音乐">♬</button>
+    <button onclick="VN.toggleHistory()" title="历史">记</button>
+  </div>
+
+  <!-- 立绘缩放按钮 -->
+  <div id="vn-sprite-zoom">
+    <button onclick="VN.spriteZoomIn()" title="放大">+</button>
+    <button onclick="VN.spriteZoomOut()" title="缩小">−</button>
+    <button onclick="VN.spriteZoomReset()" title="重置">○</button>
+  </div>
+
+  <!-- 历史弹窗(居中) -->
+  <div id="vn-history-overlay" onclick="if(event.target===this)VN.toggleHistory()">
+    <div id="vn-history-panel">
+      <div class="history-header">
+        <h3>对话历史</h3>
+        <div class="history-header-btns">
+          <button onclick="VN.summarizeHistory()" title="总结">📋</button>
+          <button onclick="VN.toggleHistory()" title="关闭">×</button>
+        </div>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- 背景选择 -->
+  <div class="vn-overlay" id="vn-bg-picker" onclick="VN.closePicker(event,'vn-bg-picker')">
+    <div class="vn-panel" id="bg-panel"></div>
+  </div>
+
+  <!-- 立绘选择 -->
+  <div class="vn-overlay" id="vn-sprite-picker" onclick="VN.closePicker(event,'vn-sprite-picker')">
+    <div class="vn-panel" id="sprite-panel"></div>
+  </div>
+
+  <!-- 样式选择 -->
+  <div class="vn-overlay" id="vn-style-picker" onclick="VN.closePicker(event,'vn-style-picker')">
+    <div class="vn-panel" id="style-panel"></div>
+  </div>
+
+  <!-- 字号选择 -->
+  <div class="vn-overlay" id="vn-font-picker" onclick="VN.closePicker(event,'vn-font-picker')">
+    <div class="vn-panel" id="font-panel"></div>
+  </div>
+
+  <!-- 正则替换 -->
+  <div class="vn-overlay" id="vn-regex-picker" onclick="VN.closePicker(event,'vn-regex-picker')">
+    <div class="vn-panel" id="regex-panel"></div>
+  </div>
+
+  <!-- 音乐播放器浮层 -->
+  <div id="vn-music-player">
+    <div class="music-track-name" id="music-track-name">未选择音乐</div>
+    <div class="music-controls">
+      <button onclick="VN.musicPrev()">⏮</button>
+      <button onclick="VN.musicToggle()" id="music-play-btn">▶</button>
+      <button onclick="VN.musicNext()">⏭</button>
+    </div>
+    <div class="music-list-wrap" id="music-list-wrap"></div>
+  </div>
+
+  <!-- 输入覆层 -->
+  <div id="vn-input-overlay">
+    <textarea id="vn-input" placeholder="输入内容..." rows="1"></textarea>
+    <button onclick="VN.sendMessage()">发送</button>
+  </div>
+
+  <!-- 退出遮罩 -->
+  <div id="vn-exit-overlay"><span id="exit-status">正在总结...</span></div>
+
+  <!-- 自定义CSS -->
+  <style id="vn-custom-css"></style>
+  <style id="vn-custom-font"></style>
+
+<script src="backgrounds/list.js"></script>
+<script>
+// ========== DB 常量 ==========
+const CHAT_DB_NAME = 'ChatDB';
+const CHAT_DB_VERSION = 4;
+const CHAR_STORE = 'characters';
+const MSG_STORE = 'messages';
+const DYNAMIC_STORE = 'dynamics';
+const WORLDBOOK_STORE = 'worldbooks';
+
+// vnBackgrounds store
+const VN_BG_DB_NAME = 'VNBackgroundsDB';
+const VN_BG_STORE = 'vnBackgrounds';
+
+let vnDB = null;
+function openChatDB() {
+  return new Promise((resolve, reject) => {
+    if (vnDB) { resolve(vnDB); return; }
+    const req = indexedDB.open(CHAT_DB_NAME, CHAT_DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { vnDB = req.result; resolve(vnDB); };
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(CHAR_STORE)) db.createObjectStore(CHAR_STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(MSG_STORE)) {
+        const ms = db.createObjectStore(MSG_STORE, { keyPath: 'id' });
+        ms.createIndex('chatId', 'chatId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(DYNAMIC_STORE)) {
+        const ds = db.createObjectStore(DYNAMIC_STORE, { keyPath: 'id' });
+        ds.createIndex('characterId', 'characterId', { unique: false });
+        ds.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(WORLDBOOK_STORE)) {
+        const ws = db.createObjectStore(WORLDBOOK_STORE, { keyPath: 'id' });
+        ws.createIndex('name', 'name', { unique: false });
+        ws.createIndex('characterId', 'characterId', { unique: false });
+      }
+    };
+  });
+}
+
+// ========== vnBackgrounds IndexedDB ==========
+let vnBgDB = null;
+function openVnBgDB() {
+  return new Promise((resolve, reject) => {
+    if (vnBgDB) { resolve(vnBgDB); return; }
+    const req = indexedDB.open(VN_BG_DB_NAME, 1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { vnBgDB = req.result; resolve(vnBgDB); };
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(VN_BG_STORE)) {
+        db.createObjectStore(VN_BG_STORE, { keyPath: 'key' });
+      }
+    };
+  });
+}
+
+// ========== MusicPlayerDB access ==========
+function openMusicDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('MusicPlayerDB', 1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('audioFiles')) {
+        db.createObjectStore('audioFiles');
+      }
+    };
+  });
+}
+
+// ========== API 配置 ==========
+function getAPIConfig() {
+  try {
+    const cfgs = JSON.parse(localStorage.getItem('apiConfigs') || '[]');
+    if (cfgs.length > 0) {
+      const bindings = JSON.parse(localStorage.getItem('modelBindings') || '{}');
+      const offlineBind = bindings.offline || {};
+      const chatBind = bindings.chat || {};
+      const bind = (offlineBind.configId && offlineBind.model) ? offlineBind : chatBind;
+      const activeId = bind.configId || localStorage.getItem('activeConfigId');
+      const config = cfgs.find(c => c.id === activeId) || cfgs[0];
+      if (config && config.key) {
+        return {
+          apiKey: config.key,
+          apiUrl: 'https://api.daidaibird.top/v1/chat/completions',
+          model: bind.model || 'gpt-3.5-turbo',
+          temperature: parseFloat(localStorage.getItem('ai_temperature')) || 0.7,
+          maxTokens: parseInt(localStorage.getItem('ai_max_tokens')) || 2048
+        };
       }
     }
-  </script>
+  } catch (e) {}
+  const config = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+  return {
+    apiKey: config.apiKey || config.key || config.api_key || '',
+    apiUrl: config.apiUrl || config.url || config.api_url || config.baseUrl || 'https://api.openai.com/v1/chat/completions',
+    model: config.model || 'gpt-3.5-turbo',
+    temperature: config.temperature || 0.7,
+    maxTokens: config.maxTokens || config.max_tokens || 2048
+  };
+}
+
+async function callAPI(messages, config) {
+  let url = config.apiUrl || 'https://api.openai.com/v1/chat/completions';
+  url = url.replace(/\/+$/, '');
+  if (!url.includes('/chat/completions')) {
+    url += url.endsWith('/v1') ? '/chat/completions' : '/v1/chat/completions';
+  }
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
+    body: JSON.stringify({
+      model: config.model || 'gpt-3.5-turbo',
+      messages,
+      temperature: config.temperature || 0.8,
+      max_tokens: config.maxTokens || 1000
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error('API错误 ' + resp.status + ': ' + err.substring(0, 200));
+  }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.response || data.output?.text || '';
+}
+
+function generateMsgId() {
+  return 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+}
+
+// ========== 主模块 ==========
+const VN = {
+  char: null,
+  charId: null,
+  paragraphs: [],
+  paraIndex: 0,
+  scrollPage: 0,
+  isWaiting: false,
+  isLoading: false,
+
+  // 音乐状态
+  musicAudio: null,
+  musicPlaylist: [],
+  musicIndex: -1,
+
+  // 段落元数据: paragraphsMeta[i] = { bgName, spriteName } 或 null
+  paragraphsMeta: [],
+
+  // 背景列表缓存
+  bgFolderList: [],
+  bgUploadedList: [],
+
+  // ---------- 初始化 ----------
+  async init() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+
+    if (id) {
+      this.charId = id;
+      await this.loadCharacter(id);
+    } else {
+      await this.showCharacterList();
+    }
+  },
+
+  async loadCharacter(id) {
+    const db = await openChatDB();
+    const char = await new Promise((res, rej) => {
+      const tx = db.transaction(CHAR_STORE, 'readonly');
+      const req = tx.objectStore(CHAR_STORE).get(id);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+    if (!char) { alert('角色不存在'); history.back(); return; }
+
+    this.char = char;
+    this.charId = id;
+    document.getElementById('dialog-name').textContent = char.name || '';
+
+    // 初始化VN字段
+    if (!char.vnChatHistory) char.vnChatHistory = [];
+    if (!char.vnDialogStyle) char.vnDialogStyle = 'default';
+    if (!char.vnFontSize) char.vnFontSize = 16;
+
+    // 应用样式
+    this.applyDialogStyle(char.vnDialogStyle);
+    this.applyFontSize(char.vnFontSize);
+
+    // 应用对话框背景色
+    if (char.vnDialogBgColor) {
+      document.getElementById('vn-dialog').style.backgroundColor = char.vnDialogBgColor;
+    }
+
+    // 应用自定义CSS
+    if (char.vnCustomCSS) {
+      document.getElementById('vn-custom-css').textContent = char.vnCustomCSS;
+    }
+
+    // 应用自定义字体
+    if (char.vnFontUrl) {
+      this.loadFontUrl(char.vnFontUrl);
+    }
+
+    // 加载背景
+    if (char.vnBackground) {
+      this.applyBgValue(char.vnBackground);
+    }
+
+    // 加载立绘
+    this.loadDefaultSprite();
+
+    // 加载立绘位置
+    if (char.vnSpritePos) {
+      const sprite = document.getElementById('vn-sprite');
+      sprite.classList.add('positioned');
+      sprite.style.left = char.vnSpritePos.left;
+      sprite.style.top = char.vnSpritePos.top;
+      sprite.style.bottom = 'auto';
+      const scale = char.vnSpriteScale || 1;
+      if (scale !== 1) sprite.style.transform = 'scale(' + scale + ')';
+    }
+
+    // 设为等待输入
+    this.setWaiting();
+
+    // 立绘拖拽
+    this.initDrag();
+
+    // 预加载音乐
+    this.loadMusicPlaylist();
+
+    // 预加载背景列表(供AI prompt使用)
+    this.preloadBgList();
+  },
+
+  applyBgValue(val) {
+    const bg = document.getElementById('vn-bg');
+    if (!val) {
+      bg.style.background = '#000';
+      bg.style.backgroundImage = 'none';
+      return;
+    }
+    // data URL or blob URL for uploaded backgrounds
+    if (val.startsWith('data:') || val.startsWith('blob:')) {
+      bg.style.background = 'none';
+      bg.style.backgroundImage = 'url(' + val + ')';
+      bg.style.backgroundSize = 'cover';
+      bg.style.backgroundPosition = 'center';
+    } else if (val.startsWith('linear-gradient') || val.startsWith('#') || val.startsWith('rgb')) {
+      bg.style.backgroundImage = 'none';
+      bg.style.background = val;
+    } else if (val.startsWith('folder:')) {
+      // folder背景: folder:filename
+      const filename = val.substring(7);
+      bg.style.background = 'none';
+      bg.style.backgroundImage = 'url(' + encodeURI('backgrounds/' + filename) + ')';
+      bg.style.backgroundSize = 'cover';
+      bg.style.backgroundPosition = 'center';
+    } else if (val.startsWith('idb:')) {
+      // IndexedDB背景
+      const key = val.substring(4);
+      this.loadIdbBg(key);
+    } else {
+      bg.style.background = 'none';
+      bg.style.backgroundImage = 'url(' + val + ')';
+      bg.style.backgroundSize = 'cover';
+      bg.style.backgroundPosition = 'center';
+    }
+  },
+
+  async loadIdbBg(key) {
+    try {
+      const db = await openVnBgDB();
+      const tx = db.transaction(VN_BG_STORE, 'readonly');
+      const req = tx.objectStore(VN_BG_STORE).get(key);
+      req.onsuccess = () => {
+        if (req.result && req.result.data) {
+          const bg = document.getElementById('vn-bg');
+          bg.style.background = 'none';
+          bg.style.backgroundImage = 'url(' + req.result.data + ')';
+          bg.style.backgroundSize = 'cover';
+          bg.style.backgroundPosition = 'center';
+        }
+      };
+    } catch (e) { console.error('加载IDB背景失败', e); }
+  },
+
+  loadDefaultSprite() {
+    if (!this.char || !this.char.illustrations) return;
+    let ill = null;
+    if (this._selectedSpriteId) {
+      ill = this.char.illustrations.find(i => i.id === this._selectedSpriteId && i.data);
+      this._selectedSpriteId = null;
+    }
+    if (!ill) ill = this.char.illustrations.find(i => i.preset === '平静' && i.data);
+    if (!ill) ill = this.char.illustrations.find(i => i.data);
+    if (ill) {
+      const sprite = document.getElementById('vn-sprite');
+      sprite.src = ill.data;
+      sprite.style.display = 'block';
+      document.getElementById('vn-sprite-zoom').classList.add('active');
+      this.char._currentSpriteName = ill.preset || ill.name || '';
+      if (this.char.vnSpriteScale) {
+        sprite.style.transform = sprite.classList.contains('positioned')
+          ? 'scale(' + this.char.vnSpriteScale + ')'
+          : 'translateX(-50%) scale(' + this.char.vnSpriteScale + ')';
+      }
+    }
+  },
+
+  // ---------- 角色列表 ----------
+  async showCharacterList() {
+    const db = await openChatDB();
+    const chars = await new Promise((res, rej) => {
+      const tx = db.transaction(CHAR_STORE, 'readonly');
+      const req = tx.objectStore(CHAR_STORE).getAll();
+      req.onsuccess = () => res(req.result || []);
+      req.onerror = () => rej(req.error);
+    });
+
+    const list = chars.filter(c => !c.isGroup);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'char-list-overlay';
+
+    let selectedCharId = null;
+    let selectedSpriteId = null;
+
+    let html = '<div class="char-list-panel"><h3>开始线下模式</h3>';
+
+    if (list.length === 0) {
+      html += '<div class="char-list-empty">暂无角色，请先在QQ中创建</div>';
+    } else {
+      html += '<div class="cl-section open" id="cl-char-section">';
+      html += '<div class="cl-section-header" data-section="char">选择角色 <span class="arrow">▶</span></div>';
+      html += '<div class="cl-section-body">';
+      list.forEach(c => {
+        const avatar = c.avatar
+          ? '<img src="' + c.avatar + '" />'
+          : (c.name || '?').charAt(0);
+        html += '<div class="char-item" data-id="' + c.id + '">'
+          + '<div class="char-avatar">' + avatar + '</div>'
+          + '<div class="char-name">' + (c.name || '未命名') + '</div>'
+          + '</div>';
+      });
+      html += '</div></div>';
+
+      html += '<div class="cl-section" id="cl-sprite-section">';
+      html += '<div class="cl-section-header" data-section="sprite">选择立绘 <span class="arrow">▶</span></div>';
+      html += '<div class="cl-section-body"><div class="cl-sprite-grid" id="cl-sprite-grid"></div></div>';
+      html += '</div>';
+
+      html += '<button class="cl-confirm-btn" id="cl-confirm" disabled>确认开始</button>';
+    }
+    html += '</div>';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('.cl-section-header').forEach(hdr => {
+      hdr.addEventListener('click', () => {
+        hdr.parentElement.classList.toggle('open');
+      });
+    });
+
+    overlay.querySelectorAll('.char-item').forEach(el => {
+      el.addEventListener('click', () => {
+        overlay.querySelectorAll('.char-item').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedCharId = el.dataset.id;
+        selectedSpriteId = null;
+
+        const char = list.find(c => c.id === selectedCharId);
+        const grid = overlay.querySelector('#cl-sprite-grid');
+        const ills = (char && char.illustrations || []).filter(i => i.data);
+        if (ills.length === 0) {
+          grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:rgba(0,0,0,0.35);padding:16px;font-size:13px;">该角色暂无立绘</div>';
+        } else {
+          grid.innerHTML = ills.map(ill =>
+            '<div class="cl-sprite-item" data-ill="' + ill.id + '">'
+            + '<img src="' + ill.data + '" />'
+            + '<div class="label">' + (ill.preset || ill.name || '') + '</div>'
+            + '</div>'
+          ).join('');
+
+          grid.querySelectorAll('.cl-sprite-item').forEach(si => {
+            si.addEventListener('click', () => {
+              grid.querySelectorAll('.cl-sprite-item').forEach(x => x.classList.remove('selected'));
+              si.classList.add('selected');
+              selectedSpriteId = si.dataset.ill;
+              overlay.querySelector('#cl-confirm').disabled = false;
+            });
+          });
+        }
+
+        const spriteSection = overlay.querySelector('#cl-sprite-section');
+        spriteSection.classList.add('open');
+        if (ills.length === 0) {
+          overlay.querySelector('#cl-confirm').disabled = false;
+        } else {
+          overlay.querySelector('#cl-confirm').disabled = true;
+        }
+      });
+    });
+
+    const confirmBtn = overlay.querySelector('#cl-confirm');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        if (!selectedCharId) return;
+        overlay.remove();
+        this._selectedSpriteId = selectedSpriteId;
+        history.replaceState(null, '', 'offline-mode.html?id=' + selectedCharId);
+        this.loadCharacter(selectedCharId);
+      });
+    }
+  },
+
+  // ---------- 拖拽 ----------
+  initDrag() {
+    const sprite = document.getElementById('vn-sprite');
+    let dragging = false, startX, startY, origLeft, origTop;
+
+    sprite.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      sprite.setPointerCapture(e.pointerId);
+      const rect = sprite.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      origLeft = rect.left;
+      origTop = rect.top;
+    });
+
+    sprite.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      sprite.classList.add('positioned');
+      sprite.style.bottom = 'auto';
+      sprite.style.left = (origLeft + dx) + 'px';
+      sprite.style.top = (origTop + dy) + 'px';
+    });
+
+    sprite.addEventListener('pointerup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      if (this.char) {
+        this.char.vnSpritePos = { left: sprite.style.left, top: sprite.style.top };
+        this.saveChar();
+      }
+    });
+
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+
+    sprite.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        dragging = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        pinchStartScale = this.char?.vnSpriteScale || 1;
+      }
+    }, { passive: false });
+
+    sprite.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (pinchStartDist > 0) {
+          let scale = pinchStartScale * (dist / pinchStartDist);
+          scale = Math.max(0.3, Math.min(3, scale));
+          const tx = sprite.classList.contains('positioned') ? '' : 'translateX(-50%) ';
+          sprite.style.transform = tx + 'scale(' + scale + ')';
+          if (this.char) this.char.vnSpriteScale = scale;
+        }
+      }
+    }, { passive: false });
+
+    sprite.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2 && pinchStartDist > 0) {
+        pinchStartDist = 0;
+        if (this.char) this.saveChar();
+      }
+    });
+  },
+
+  // ---------- 对话显示系统 ----------
+  showParagraphs(paragraphs) {
+    this.paragraphs = paragraphs;
+    this.paraIndex = 0;
+    this.scrollPage = 0;
+    this.isWaiting = false;
+    this.showCurrentParagraph();
+  },
+
+  showCurrentParagraph() {
+    const textEl = document.getElementById('dialog-text');
+    const nextEl = document.getElementById('dialog-next');
+    textEl.classList.remove('placeholder', 'loading');
+    textEl.style.userSelect = 'text';
+
+    if (this.paraIndex >= this.paragraphs.length) {
+      this.setWaiting();
+      return;
+    }
+
+    // ⑤ 检查当前段落的场景元数据，自动切换背景/立绘
+    const m = this.paragraphsMeta[this.paraIndex];
+    if (m) {
+      if (m.bgName) this.autoSwitchBg(m.bgName);
+      if (m.spriteName) this.autoSwitchSprite(m.spriteName);
+    }
+
+    textEl.innerHTML = this.paragraphs[this.paraIndex];
+    this.scrollPage = 0;
+    textEl.scrollTop = 0;
+
+    requestAnimationFrame(() => {
+      if (textEl.scrollHeight > textEl.clientHeight + 2) {
+        nextEl.style.display = 'block';
+      } else if (this.paraIndex < this.paragraphs.length - 1) {
+        nextEl.style.display = 'block';
+      } else {
+        nextEl.style.display = 'none';
+        setTimeout(() => this.setWaiting(), 100);
+      }
+    });
+  },
+
+  nextPage() {
+    const textEl = document.getElementById('dialog-text');
+    const nextEl = document.getElementById('dialog-next');
+
+    if (textEl.scrollTop + textEl.clientHeight < textEl.scrollHeight - 2) {
+      textEl.scrollTop += textEl.clientHeight;
+      requestAnimationFrame(() => {
+        if (textEl.scrollTop + textEl.clientHeight >= textEl.scrollHeight - 2) {
+          if (this.paraIndex < this.paragraphs.length - 1) {
+            // still more paragraphs
+          } else {
+            nextEl.style.display = 'none';
+            setTimeout(() => this.setWaiting(), 100);
+          }
+        }
+      });
+      return;
+    }
+
+    this.paraIndex++;
+    if (this.paraIndex < this.paragraphs.length) {
+      this.showCurrentParagraph();
+    } else {
+      nextEl.style.display = 'none';
+      this.setWaiting();
+    }
+  },
+
+  setWaiting() {
+    this.isWaiting = true;
+    const textEl = document.getElementById('dialog-text');
+    const nextEl = document.getElementById('dialog-next');
+    textEl.innerHTML = '输入文字内容';
+    textEl.classList.add('placeholder');
+    textEl.classList.remove('loading');
+    nextEl.style.display = 'none';
+  },
+
+  onDialogClick() {
+    if (this.isWaiting) {
+      this.showInput();
+    } else if (!this.isLoading) {
+      this.nextPage();
+    }
+  },
+
+  // ---------- 输入 ----------
+  showInput() {
+    const overlay = document.getElementById('vn-input-overlay');
+    const input = document.getElementById('vn-input');
+    overlay.classList.add('active');
+    input.focus();
+  },
+
+  hideInput() {
+    document.getElementById('vn-input-overlay').classList.remove('active');
+  },
+
+  async sendMessage() {
+    const input = document.getElementById('vn-input');
+    const text = input.value.trim();
+    if (!text || this.isLoading) return;
+
+    input.value = '';
+    this.hideInput();
+
+    this.addHistory('user', text);
+
+    this.isLoading = true;
+    this.isWaiting = false;
+    const textEl = document.getElementById('dialog-text');
+    textEl.classList.remove('placeholder');
+    textEl.classList.add('loading');
+    textEl.innerHTML = '思考中...';
+    document.getElementById('dialog-next').style.display = 'none';
+
+    try {
+      const reply = await this.callAI(text);
+      this.isLoading = false;
+
+      // 存原始AI回复到历史
+      this.addHistory('assistant', reply);
+
+      // 解析段落(含场景标记)
+      const { paragraphs, meta } = this.parseAIReply(reply);
+
+      // 应用正则替换规则
+      const processed = paragraphs.map(p => this.applyRegexRules(p));
+
+      this.paragraphsMeta = meta;
+      this.showParagraphs(processed);
+    } catch (e) {
+      this.isLoading = false;
+      textEl.classList.remove('loading');
+      textEl.innerHTML = '出错了: ' + e.message;
+      setTimeout(() => this.setWaiting(), 3000);
+    }
+  },
+
+  // ⑤⑧ 解析AI回复: 多段场景切换
+  // 格式: [场景:背景名|立绘名]<p>文本</p><p>文本</p>[场景:背景名|立绘名]<p>文本</p>
+  // 也兼容旧格式: 背景名|立绘名|正文
+  parseAIReply(raw) {
+    // 内置：清除模型思维链
+    let text = raw.replace(/<(?:think|thinking)>[\s\S]*?<\/(?:think|thinking)>/g, '');
+    text = text.replace(/<status>[\s\S]*?<\/status>/gi, '').trim();
+
+    const paragraphs = [];
+    const meta = []; // meta[i] = { bgName, spriteName } or null
+
+    // 尝试新格式: 带[场景:...]标记
+    const sceneTagRegex = /\[场景[:：]([^\]]*)\]/g;
+    const hasSceneTags = sceneTagRegex.test(text);
+    sceneTagRegex.lastIndex = 0;
+
+    if (hasSceneTags) {
+      // 分割文本为: (可选场景标记) + 内容段落
+      let currentBg = null;
+      let currentSprite = null;
+
+      // 将文本按场景标记分段
+      const parts = text.split(/(\[场景[:：][^\]]*\])/g);
+
+      for (const part of parts) {
+        const sceneMatch = part.match(/^\[场景[:：]([^\]]*)\]$/);
+        if (sceneMatch) {
+          // 解析场景标记
+          const sceneParts = sceneMatch[1].split('|');
+          const bg = (sceneParts[0] || '').trim();
+          const sprite = (sceneParts[1] || '').trim();
+          if (bg && bg !== '不变') currentBg = bg;
+          if (sprite && sprite !== '不变') currentSprite = sprite;
+          continue;
+        }
+
+        // 内容部分：提取<p>段落
+        const pMatches = part.match(/<p>([\s\S]*?)<\/p>/gi);
+        if (pMatches && pMatches.length > 0) {
+          for (const pm of pMatches) {
+            const content = pm.replace(/<\/?p>/gi, '').trim();
+            if (!content) continue;
+            paragraphs.push(content);
+            meta.push({ bgName: currentBg, spriteName: currentSprite });
+            // 首段应用后清除，后续段落继承（不重复触发）
+            currentBg = null;
+            currentSprite = null;
+          }
+        } else {
+          // 无<p>标签，按换行分段
+          const lines = part.replace(/<\/?msg>/gi, '').split(/\n+/).map(l => l.trim()).filter(Boolean);
+          for (const line of lines) {
+            if (!line) continue;
+            paragraphs.push(line);
+            meta.push({ bgName: currentBg, spriteName: currentSprite });
+            currentBg = null;
+            currentSprite = null;
+          }
+        }
+      }
+
+      if (paragraphs.length > 0) {
+        return { paragraphs, meta };
+      }
+    }
+
+    // 兼容旧格式: 第一行 "背景名|立绘名|正文"
+    const lines = text.split('\n');
+    const firstLine = lines[0] || '';
+    const pipeMatch = firstLine.match(/^([^|]*)\|([^|]*)\|/);
+
+    if (pipeMatch) {
+      const bgName = pipeMatch[1].trim() || null;
+      const spriteName = pipeMatch[2].trim() || null;
+      const afterPipe = firstLine.substring(pipeMatch[0].length).trim();
+      const restLines = lines.slice(1).join('\n').trim();
+      const bodyText = afterPipe + (restLines ? '\n' + restLines : '');
+
+      const parsedParas = this._extractParagraphs(bodyText);
+      for (let i = 0; i < parsedParas.length; i++) {
+        paragraphs.push(parsedParas[i]);
+        meta.push(i === 0 ? { bgName, spriteName } : { bgName: null, spriteName: null });
+      }
+      return { paragraphs, meta };
+    }
+
+    // 无格式标记：纯文本分段
+    const parsedParas = this._extractParagraphs(text);
+    for (const p of parsedParas) {
+      paragraphs.push(p);
+      meta.push({ bgName: null, spriteName: null });
+    }
+    return { paragraphs, meta };
+  },
+
+  _extractParagraphs(text) {
+    text = text.replace(/<status>[\s\S]*?<\/status>/gi, '').trim();
+    text = text.replace(/<\/?msg>/gi, '');
+
+    const pMatches = text.match(/<p>([\s\S]*?)<\/p>/gi);
+    if (pMatches && pMatches.length > 0) {
+      return pMatches.map(m => m.replace(/<\/?p>/gi, '').trim()).filter(Boolean);
+    }
+
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0) return lines;
+
+    return [text || '(空回复)'];
+  },
+
+  autoSwitchBg(bgName) {
+    if (!bgName || bgName === '无' || bgName === '不变') return;
+    // 先搜索文件夹背景
+    const folderMatch = this.bgFolderList.find(b => b.name === bgName);
+    if (folderMatch) {
+      const val = 'folder:' + folderMatch.file;
+      this.applyBgValue(val);
+      if (this.char) {
+        this.char.vnBackground = val;
+        this.char.vnBackgroundName = bgName;
+        this.saveChar();
+      }
+      return;
+    }
+    // 搜索上传的背景
+    const uploadMatch = this.bgUploadedList.find(b => b.name.includes(bgName) || bgName.includes(b.name));
+    if (uploadMatch) {
+      const val = 'idb:' + uploadMatch.key;
+      this.applyBgValue(val);
+      if (this.char) {
+        this.char.vnBackground = val;
+        this.char.vnBackgroundName = bgName;
+        this.saveChar();
+      }
+    }
+  },
+
+  autoSwitchSprite(spriteName) {
+    if (!spriteName || spriteName === '无' || spriteName === '不变') return;
+    if (!this.char || !this.char.illustrations) return;
+    const ill = this.char.illustrations.find(i =>
+      i.data && ((i.preset && i.preset.includes(spriteName)) || (i.name && i.name.includes(spriteName)) || spriteName.includes(i.preset || '') || spriteName.includes(i.name || ''))
+    );
+    if (ill) {
+      this.setSprite(ill.id);
+    }
+  },
+
+  // parseParagraphs kept for backward compat (e.g. history summarize)
+  parseParagraphs(text) {
+    return this._extractParagraphs(text);
+  },
+
+  // ---------- ⑧ AI 调用 (发送完整QQ提示词) ----------
+  async callAI(userText) {
+    const char = this.char;
+    const apiConfig = getAPIConfig();
+    if (!apiConfig.apiKey) throw new Error('未配置API，请先在API配置中设置');
+
+    const charName = char.name || '角色';
+    const userSettings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
+    const userName = userSettings.name || '用户';
+
+    // 构建完整的角色提示词(复用QQ私聊的完整人设)
+    let systemContent = '【角色人设】\n';
+    systemContent += '你是' + charName + '。';
+    if (char.description) systemContent += '\n描述: ' + char.description;
+    if (char.personality) systemContent += '\n性格: ' + char.personality;
+    if (char.system_prompt) systemContent += '\n' + char.system_prompt;
+    if (char.outfit) systemContent += '\n当前衣着: ' + char.outfit;
+    if (char.location) systemContent += '\n当前地点: ' + char.location;
+    if (char.affection !== undefined) systemContent += '\n对用户好感度: ' + char.affection + '/100';
+    if (char.mood !== undefined) systemContent += '\n当前心情: ' + char.mood + '/100';
+
+    // 时间感知
+    const now = new Date();
+    systemContent += '\n当前时间: ' + now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    systemContent += '\n当前日期: ' + now.toLocaleDateString('zh-CN');
+
+    systemContent += '\n\n【用户人设】\n用户: ' + userName;
+    if (userSettings.persona) systemContent += ' - ' + userSettings.persona;
+
+    // 总结信息
+    if (char.summaryContent?.text) {
+      systemContent += '\n\n【总结信息】\n之前的对话总结:\n' + char.summaryContent.text;
+    }
+
+    // 注入可用背景和立绘列表供模型选择
+    const bgNames = [];
+    this.bgFolderList.forEach(b => bgNames.push(b.name));
+    this.bgUploadedList.forEach(b => bgNames.push(b.name));
+    if (bgNames.length > 0) {
+      systemContent += '\n\n【可用背景】\n' + bgNames.join('、');
+    }
+
+    const spriteNames = [];
+    if (char.illustrations) {
+      char.illustrations.filter(i => i.data).forEach(i => {
+        const name = i.preset || i.name || '';
+        if (name) spriteNames.push(name);
+      });
+    }
+    if (spriteNames.length > 0) {
+      systemContent += '\n\n【可用立绘】\n' + spriteNames.join('、');
+    }
+
+    // 输出格式要求
+    systemContent += '\n\n【输出格式】\n';
+    systemContent += '你的回复由多个段落组成，每段用<p>标签包裹。\n';
+    systemContent += '当需要切换背景或立绘时，在该段<p>标签前插入场景标记: [场景:背景名|立绘名]\n';
+    systemContent += '背景名从可用背景中选择，不需要切换则省略或写"不变"。\n';
+    systemContent += '立绘名从可用立绘中选择，不需要切换则省略或写"不变"。\n';
+    systemContent += '一次回复可以包含多次场景切换，每次切换影响其后的所有段落直到下一个切换。\n';
+    systemContent += '每段30-100字，共1-5段。写对话和心理描写。\n';
+    systemContent += '示例:\n';
+    systemContent += '[场景:樱花小路|微笑]<p>"早上好啊！"她微笑着向你挥了挥手。</p>\n';
+    systemContent += '<p>微风吹过她的发梢，带来一丝花香。</p>\n';
+    systemContent += '[场景:不变|害羞]<p>"那个...今天要一起走吗？"她低下头，声音渐渐小了下去。</p>';
+
+    // 自定义提示词条目
+    if (char.promptEntries) {
+      for (const entry of char.promptEntries) {
+        if (!entry.enabled || entry.type !== 'custom' || !entry.content) continue;
+        systemContent += '\n\n【' + entry.name + '】\n';
+        systemContent += entry.content.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName);
+      }
+    }
+
+    const messages = [{ role: 'system', content: systemContent }];
+
+    // 对话示例
+    if (char.mes_example) {
+      const example = char.mes_example.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName);
+      messages.push({ role: 'system', content: '对话示例:\n' + example });
+    }
+
+    // 加入最近的VN历史（最多10条）
+    const history = char.vnChatHistory || [];
+    const recent = history.slice(-10);
+    recent.forEach(h => {
+      messages.push({ role: h.role, content: h.content });
+    });
+
+    messages.push({ role: 'user', content: userText });
+
+    return await callAPI(messages, apiConfig);
+  },
+
+  // ---------- 历史管理 ----------
+  addHistory(role, content) {
+    if (!this.char) return;
+    if (!this.char.vnChatHistory) this.char.vnChatHistory = [];
+    this.char.vnChatHistory.push({ role, content, ts: Date.now() });
+    this.saveChar();
+  },
+
+  // ---------- 持久化 ----------
+  async saveChar() {
+    if (!this.char) return;
+    const db = await openChatDB();
+    const tx = db.transaction(CHAR_STORE, 'readwrite');
+    tx.objectStore(CHAR_STORE).put(this.char);
+  },
+
+  // ---------- ⑥ 退出键 ----------
+  async goBack() {
+    if (!this.charId) { history.back(); return; }
+
+    const hist = this.char?.vnChatHistory || [];
+
+    // 没有聊天记录直接跳转
+    if (hist.length === 0) {
+      window.location.href = 'chat-room.html?id=' + this.charId;
+      return;
+    }
+
+    // 显示遮罩
+    document.getElementById('vn-exit-overlay').classList.add('active');
+    document.getElementById('exit-status').textContent = '正在总结...';
+
+    try {
+      const apiConfig = getAPIConfig();
+      if (!apiConfig.apiKey) {
+        document.getElementById('exit-status').textContent = '未配置API，跳过总结...';
+        setTimeout(() => {
+          window.location.href = 'chat-room.html?id=' + this.charId;
+        }, 1000);
+        return;
+      }
+
+      const charName = this.char.name || '角色';
+
+      // 构建总结内容
+      const chatContent = hist.map(h => {
+        const who = h.role === 'user' ? '用户' : charName;
+        let text = h.content.replace(/<status>[\s\S]*?<\/status>/gi, '')
+          .replace(/<\/?(?:p|msg)>/gi, ' ')
+          .replace(/\[场景[:：][^\]]*\]/g, '')
+          .trim();
+        return who + ': ' + text;
+      }).join('\n');
+
+      const summaryPrompt = '总结以下线下模式对话的关键信息(重要事件、关系变化、情感变化、当前状态)，不超过300字：\n\n' + chatContent;
+
+      console.log('开始调用总结API...');
+      console.log('API配置:', { url: apiConfig.apiUrl, model: apiConfig.model, hasKey: !!apiConfig.apiKey });
+
+      const summaryText = await callAPI([
+        { role: 'system', content: '你是对话总结助手。请简洁准确地总结对话内容。直接输出总结内容，不要输出其他格式标签。' },
+        { role: 'user', content: summaryPrompt }
+      ], apiConfig);
+
+      console.log('总结结果:', summaryText);
+      document.getElementById('exit-status').textContent = '正在保存...';
+
+      // 将总结作为system消息存入QQ私聊的MSG_STORE
+      const db = await openChatDB();
+      const tx = db.transaction(MSG_STORE, 'readwrite');
+      const store = tx.objectStore(MSG_STORE);
+      const sysMsg = {
+        id: generateMsgId(),
+        chatId: this.charId,
+        content: '[线下模式总结] ' + summaryText,
+        type: 'system',
+        sender: '系统',
+        timestamp: Date.now()
+      };
+      store.add(sysMsg);
+
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+
+      console.log('总结已保存到聊天记录');
+
+      // 清空线下历史
+      this.char.vnChatHistory = [];
+      await this.saveChar();
+
+      window.location.href = 'chat-room.html?id=' + this.charId;
+    } catch (e) {
+      console.error('退出总结失败:', e);
+      document.getElementById('exit-status').textContent = '总结失败: ' + e.message + '\n即将跳转...';
+      setTimeout(() => {
+        document.getElementById('vn-exit-overlay').classList.remove('active');
+        window.location.href = 'chat-room.html?id=' + this.charId;
+      }, 3000);
+    }
+  },
+
+  // 预加载背景列表(供AI调用时注入prompt)
+  async preloadBgList() {
+    // 从 backgrounds/list.js 全局变量读取（script标签加载，file://协议兼容）
+    this.bgFolderList = window.VN_BACKGROUNDS || [];
+    try {
+      const db = await openVnBgDB();
+      const tx = db.transaction(VN_BG_STORE, 'readonly');
+      const store = tx.objectStore(VN_BG_STORE);
+      const uploadedBgs = await new Promise((res, rej) => {
+        const req = store.getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => rej(req.error);
+      });
+      this.bgUploadedList = uploadedBgs.map(b => ({ key: b.key, name: b.name || b.key, data: b.data }));
+    } catch (e) {}
+  },
+
+  // ---------- ② 背景选择 ----------
+  async openBgPicker() {
+    const panel = document.getElementById('bg-panel');
+
+    // 从全局变量读取文件夹背景（由 backgrounds/list.js 提供）
+    const folderBgs = window.VN_BACKGROUNDS || [];
+    this.bgFolderList = folderBgs;
+
+    // 加载IndexedDB上传的背景
+    let uploadedBgs = [];
+    try {
+      const db = await openVnBgDB();
+      const tx = db.transaction(VN_BG_STORE, 'readonly');
+      const store = tx.objectStore(VN_BG_STORE);
+      uploadedBgs = await new Promise((res, rej) => {
+        const req = store.getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => rej(req.error);
+      });
+    } catch (e) {}
+    this.bgUploadedList = uploadedBgs.map(b => ({ key: b.key, name: b.name || b.key, data: b.data }));
+
+    let html = '<h3>选择背景</h3>';
+
+    // 本地文件夹背景
+    if (folderBgs.length > 0) {
+      html += '<div class="picker-grid">';
+      folderBgs.forEach(b => {
+        const imgSrc = encodeURI('backgrounds/' + b.file);
+        html += '<div class="picker-item" onclick="VN.setBgFromFolder(\'' + this.escapeAttr(b.file) + '\',\'' + this.escapeAttr(b.name) + '\')">'
+          + '<img src="' + imgSrc + '" onerror="this.parentElement.innerHTML=\'加载失败\'" />'
+          + '<div class="label">' + this.escapeHtml(b.name) + '</div>'
+          + '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="text-align:center;color:rgba(0,0,0,0.35);padding:16px;font-size:13px;">backgrounds/list.js 未加载或为空</div>';
+    }
+
+    // 上传的背景
+    if (uploadedBgs.length > 0) {
+      html += '<h3 style="margin-top:14px;">上传的背景</h3>';
+      html += '<div class="picker-grid">';
+      uploadedBgs.forEach(b => {
+        html += '<div class="picker-item" onclick="VN.setBgFromIdb(\'' + this.escapeAttr(b.key) + '\',\'' + this.escapeAttr(b.name || '') + '\')">'
+          + '<img src="' + b.data + '" />'
+          + '<div class="label">' + this.escapeHtml(b.name || b.key) + '</div>'
+          + '<button class="del-btn" onclick="event.stopPropagation();VN.deleteUploadedBg(\'' + this.escapeAttr(b.key) + '\')">×</button>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+
+    // 上传按钮
+    html += '<div class="bg-option" style="margin-top:12px;" onclick="VN.uploadBg()"><div class="swatch" style="background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:20px;">+</div><div class="name">上传自定义背景</div></div>';
+
+    panel.innerHTML = html;
+    document.getElementById('vn-bg-picker').classList.add('active');
+  },
+
+  setBg(type) {
+    const bg = document.getElementById('vn-bg');
+    bg.style.backgroundImage = 'none';
+    const gradients = {
+      black: '#000',
+      gradient1: 'linear-gradient(135deg,#667eea,#764ba2)',
+      gradient2: 'linear-gradient(135deg,#f093fb,#f5576c)',
+      gradient3: 'linear-gradient(135deg,#4facfe,#00f2fe)',
+      gradient4: 'linear-gradient(135deg,#43e97b,#38f9d7)'
+    };
+    bg.style.background = gradients[type] || '#000';
+    if (this.char) {
+      this.char.vnBackground = type === 'black' ? null : gradients[type];
+      this.char.vnBackgroundName = type === 'black' ? null : type;
+      this.saveChar();
+    }
+    document.getElementById('vn-bg-picker').classList.remove('active');
+  },
+
+  setBgFromFolder(file, name) {
+    const val = 'folder:' + file;
+    this.applyBgValue(val);
+    if (this.char) {
+      this.char.vnBackground = val;
+      this.char.vnBackgroundName = name;
+      this.saveChar();
+    }
+    document.getElementById('vn-bg-picker').classList.remove('active');
+  },
+
+  setBgFromIdb(key, name) {
+    const val = 'idb:' + key;
+    this.applyBgValue(val);
+    if (this.char) {
+      this.char.vnBackground = val;
+      this.char.vnBackgroundName = name;
+      this.saveChar();
+    }
+    document.getElementById('vn-bg-picker').classList.remove('active');
+  },
+
+  uploadBg() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 弹出命名对话框
+      const name = prompt('给这张背景取个名字:', file.name.replace(/\.[^.]+$/, ''));
+      if (!name) return;
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const dataUrl = ev.target.result;
+        const key = 'bg_' + name + '_' + Date.now();
+
+        try {
+          const db = await openVnBgDB();
+          const tx = db.transaction(VN_BG_STORE, 'readwrite');
+          tx.objectStore(VN_BG_STORE).put({ key, name, data: dataUrl });
+          await new Promise((res, rej) => {
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+          });
+
+          // 应用并保存
+          this.applyBgValue('idb:' + key);
+          if (this.char) {
+            this.char.vnBackground = 'idb:' + key;
+            this.char.vnBackgroundName = name;
+            this.saveChar();
+          }
+
+          document.getElementById('vn-bg-picker').classList.remove('active');
+        } catch (err) {
+          alert('保存失败: ' + err.message);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  },
+
+  async deleteUploadedBg(key) {
+    if (!confirm('确定删除这张背景？')) return;
+    try {
+      const db = await openVnBgDB();
+      const tx = db.transaction(VN_BG_STORE, 'readwrite');
+      tx.objectStore(VN_BG_STORE).delete(key);
+      await new Promise((res, rej) => {
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+      // 重新打开面板
+      this.openBgPicker();
+    } catch (e) {
+      alert('删除失败: ' + e.message);
+    }
+  },
+
+  // ---------- 立绘选择 ----------
+  openSpritePicker() {
+    if (!this.char || !this.char.illustrations) return;
+    const panel = document.getElementById('sprite-panel');
+    const ills = this.char.illustrations.filter(i => i.data);
+
+    let html = '<h3>选择立绘</h3><div class="picker-grid">';
+    if (ills.length === 0) {
+      html += '<div style="grid-column:1/-1;text-align:center;color:rgba(0,0,0,0.35);padding:20px;">暂无立绘，请在角色设置中上传</div>';
+    } else {
+      ills.forEach(ill => {
+        html += '<div class="picker-item" onclick="VN.setSprite(\'' + ill.id + '\')">'
+          + '<img src="' + ill.data + '" />'
+          + '<div class="label">' + (ill.preset || ill.name || '') + '</div>'
+          + '</div>';
+      });
+    }
+    html += '</div>';
+    panel.innerHTML = html;
+    document.getElementById('vn-sprite-picker').classList.add('active');
+  },
+
+  setSprite(illId) {
+    if (!this.char) return;
+    const ill = this.char.illustrations.find(i => i.id === illId);
+    if (!ill || !ill.data) return;
+
+    const sprite = document.getElementById('vn-sprite');
+    sprite.src = ill.data;
+    sprite.style.display = 'block';
+    document.getElementById('vn-sprite-zoom').classList.add('active');
+    this.char._currentSpriteName = ill.preset || ill.name || '';
+
+    if (this.char.vnSpritePos) {
+      sprite.classList.add('positioned');
+      sprite.style.left = this.char.vnSpritePos.left;
+      sprite.style.top = this.char.vnSpritePos.top;
+      sprite.style.bottom = 'auto';
+    }
+
+    const scale = this.char.vnSpriteScale || 1;
+    const tx = sprite.classList.contains('positioned') ? '' : 'translateX(-50%) ';
+    sprite.style.transform = tx + (scale !== 1 ? 'scale(' + scale + ')' : '');
+
+    document.getElementById('vn-sprite-picker').classList.remove('active');
+  },
+
+  // ---------- ④ 音乐模块 ----------
+  loadMusicPlaylist() {
+    try {
+      const raw = localStorage.getItem('my_music_playlist_v3');
+      if (raw) {
+        this.musicPlaylist = JSON.parse(raw) || [];
+      }
+    } catch (e) {
+      this.musicPlaylist = [];
+    }
+  },
+
+  toggleMusicPlayer() {
+    const player = document.getElementById('vn-music-player');
+    if (player.classList.contains('active')) {
+      player.classList.remove('active');
+    } else {
+      this.renderMusicList();
+      player.classList.add('active');
+    }
+  },
+
+  renderMusicList() {
+    const wrap = document.getElementById('music-list-wrap');
+    if (this.musicPlaylist.length === 0) {
+      wrap.innerHTML = '<div style="text-align:center;color:#999;font-size:13px;padding:12px;">音乐播放列表为空</div>';
+      return;
+    }
+    wrap.innerHTML = this.musicPlaylist.map((track, i) => {
+      const name = track.name || track.title || ('曲目 ' + (i + 1));
+      const cls = i === this.musicIndex ? ' active' : '';
+      return '<div class="music-list-item' + cls + '" onclick="VN.musicPlay(' + i + ')">' + this.escapeHtml(name) + '</div>';
+    }).join('');
+  },
+
+  async musicPlay(index) {
+    if (index < 0 || index >= this.musicPlaylist.length) return;
+    this.musicIndex = index;
+    const track = this.musicPlaylist[index];
+    const trackName = track.name || track.title || ('曲目 ' + (index + 1));
+
+    document.getElementById('music-track-name').textContent = trackName;
+    this.renderMusicList();
+
+    // 获取音频数据
+    try {
+      let audioUrl = null;
+
+      // 尝试从IndexedDB MusicPlayerDB获取
+      if (track.id || track.key) {
+        const db = await openMusicDB();
+        const tx = db.transaction('audioFiles', 'readonly');
+        const store = tx.objectStore('audioFiles');
+        const key = track.id || track.key;
+        const blob = await new Promise((res, rej) => {
+          const req = store.get(key);
+          req.onsuccess = () => res(req.result);
+          req.onerror = () => rej(req.error);
+        });
+        if (blob) {
+          audioUrl = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob]));
+        }
+      }
+
+      // 尝试直接URL
+      if (!audioUrl && track.url) {
+        audioUrl = track.url;
+      }
+      if (!audioUrl && track.src) {
+        audioUrl = track.src;
+      }
+
+      if (!audioUrl) {
+        document.getElementById('music-track-name').textContent = trackName + ' (无法加载)';
+        return;
+      }
+
+      if (!this.musicAudio) {
+        this.musicAudio = new Audio();
+        this.musicAudio.addEventListener('ended', () => this.musicNext());
+      }
+      this.musicAudio.src = audioUrl;
+      this.musicAudio.play();
+      document.getElementById('music-play-btn').textContent = '⏸';
+    } catch (e) {
+      console.error('播放音乐失败:', e);
+      document.getElementById('music-track-name').textContent = trackName + ' (错误)';
+    }
+  },
+
+  musicToggle() {
+    if (!this.musicAudio) {
+      if (this.musicPlaylist.length > 0) this.musicPlay(0);
+      return;
+    }
+    if (this.musicAudio.paused) {
+      this.musicAudio.play();
+      document.getElementById('music-play-btn').textContent = '⏸';
+    } else {
+      this.musicAudio.pause();
+      document.getElementById('music-play-btn').textContent = '▶';
+    }
+  },
+
+  musicPrev() {
+    if (this.musicPlaylist.length === 0) return;
+    let idx = this.musicIndex - 1;
+    if (idx < 0) idx = this.musicPlaylist.length - 1;
+    this.musicPlay(idx);
+  },
+
+  musicNext() {
+    if (this.musicPlaylist.length === 0) return;
+    let idx = this.musicIndex + 1;
+    if (idx >= this.musicPlaylist.length) idx = 0;
+    this.musicPlay(idx);
+  },
+
+  // ---------- ⑤ 历史弹窗(居中) ----------
+  toggleHistory() {
+    const overlay = document.getElementById('vn-history-overlay');
+    if (overlay.classList.contains('active')) {
+      overlay.classList.remove('active');
+    } else {
+      this.renderHistory();
+      overlay.classList.add('active');
+    }
+  },
+
+  renderHistory() {
+    const list = document.getElementById('history-list');
+    const history = this.char?.vnChatHistory || [];
+    if (history.length === 0) {
+      list.innerHTML = '<div style="color:rgba(0,0,0,0.35);text-align:center;padding:30px;">暂无记录</div>';
+      return;
+    }
+    list.innerHTML = history.map((h, i) => {
+      const roleClass = h.role === 'user' ? 'role-user' : 'role-assistant';
+      const roleName = h.role === 'user' ? '你' : (this.char?.name || '角色');
+      let text = h.content.replace(/<status>[\s\S]*?<\/status>/gi, '')
+        .replace(/<\/?(?:p|msg)>/gi, ' ').trim();
+      return '<div class="history-msg ' + roleClass + '" data-idx="' + i + '">'
+        + '<div class="msg-role">' + roleName + '</div>'
+        + '<div class="msg-content">' + this.escapeHtml(text) + '</div>'
+        + '<div class="msg-actions">'
+        + '<button onclick="VN.editHistoryMsg(' + i + ')" title="编辑">✏</button>'
+        + '<button onclick="VN.deleteHistoryMsg(' + i + ')" title="删除">🗑</button>'
+        + '</div></div>';
+    }).join('');
+    list.scrollTop = list.scrollHeight;
+  },
+
+  editHistoryMsg(idx) {
+    if (!this.char || !this.char.vnChatHistory[idx]) return;
+    const msgEl = document.querySelector('.history-msg[data-idx="' + idx + '"] .msg-content');
+    if (!msgEl) return;
+
+    const currentText = this.char.vnChatHistory[idx].content;
+    const ta = document.createElement('textarea');
+    ta.value = currentText;
+    ta.style.cssText = 'width:100%;min-height:60px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);border-radius:6px;color:#222;font-size:13px;padding:6px;resize:vertical;font-family:inherit;';
+    msgEl.innerHTML = '';
+    msgEl.appendChild(ta);
+    ta.focus();
+
+    const save = () => {
+      const newText = ta.value.trim();
+      if (newText) {
+        this.char.vnChatHistory[idx].content = newText;
+        this.saveChar();
+      }
+      this.renderHistory();
+    };
+    ta.addEventListener('blur', save);
+  },
+
+  deleteHistoryMsg(idx) {
+    if (!this.char || !this.char.vnChatHistory[idx]) return;
+    if (!confirm('确定删除这条消息？')) return;
+    this.char.vnChatHistory.splice(idx, 1);
+    this.saveChar();
+    this.renderHistory();
+  },
+
+  async summarizeHistory() {
+    const hist = this.char?.vnChatHistory || [];
+    if (hist.length < 3) {
+      alert('消息太少，无法总结');
+      return;
+    }
+
+    const apiConfig = getAPIConfig();
+    if (!apiConfig.apiKey) {
+      alert('请先配置API');
+      return;
+    }
+
+    const charName = this.char.name || '角色';
+    const chatContent = hist.map(h => {
+      const who = h.role === 'user' ? '用户' : charName;
+      let text = h.content.replace(/<status>[\s\S]*?<\/status>/gi, '')
+        .replace(/<\/?(?:p|msg)>/gi, ' ').trim();
+      return who + ': ' + text;
+    }).join('\n');
+
+    const summaryPrompt = '总结以下对话的关键信息(重要事件、关系变化、设定、当前状态)，不超过500字：\n\n' + chatContent;
+
+    const existingSummary = this.char.summaryContent?.text;
+    const sysContent = existingSummary
+      ? '你是对话总结助手。之前的总结:\n' + existingSummary + '\n\n请将新内容整合进总结中。'
+      : '你是对话总结助手。';
+
+    // 显示loading
+    const btn = document.querySelector('.history-header-btns button[title="总结"]');
+    if (btn) btn.textContent = '...';
+
+    try {
+      const summary = await callAPI([
+        { role: 'system', content: sysContent },
+        { role: 'user', content: summaryPrompt }
+      ], apiConfig);
+
+      if (!this.char.summaryContent) this.char.summaryContent = {};
+      this.char.summaryContent.text = summary;
+      this.char.summaryContent.lastFloor = hist.length;
+      this.saveChar();
+
+      alert('总结完成:\n\n' + summary);
+    } catch (e) {
+      alert('总结失败: ' + e.message);
+    } finally {
+      if (btn) btn.textContent = '📋';
+    }
+  },
+
+  // ---------- ⑦ 对话框样式增强 ----------
+  openStylePicker() {
+    const panel = document.getElementById('style-panel');
+    const cur = this.char?.vnDialogStyle || 'default';
+    const curColor = this.char?.vnDialogBgColor || '';
+    const curCSS = this.char?.vnCustomCSS || '';
+
+    const styles = [
+      { id: 'default', name: '默认（毛玻璃）' },
+      { id: 'style-noframe', name: '无框' },
+      { id: 'style-classic', name: '经典' }
+    ];
+
+    let html = '<h3>对话框样式</h3>';
+    html += styles.map(s =>
+      '<div class="style-option' + (cur === s.id ? ' active' : '') + '" onclick="VN.setDialogStyle(\'' + s.id + '\')">' + s.name + '</div>'
+    ).join('');
+
+    // 颜色选择
+    html += '<div class="vn-form-group">';
+    html += '<label>对话框背景色</label>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<input type="color" id="vn-dialog-color" value="' + (curColor || '#ffffff') + '" style="width:40px;height:32px;padding:0;border:none;cursor:pointer;" />';
+    html += '<button class="vn-save-btn" style="width:auto;margin:0;padding:6px 12px;" onclick="VN.applyDialogColor()">应用颜色</button>';
+    html += '<button class="vn-save-btn" style="width:auto;margin:0;padding:6px 12px;" onclick="VN.clearDialogColor()">清除</button>';
+    html += '</div></div>';
+
+    // 自定义CSS
+    html += '<div class="vn-form-group">';
+    html += '<label>自定义CSS</label>';
+    html += '<textarea id="vn-custom-css-input" placeholder="输入自定义CSS样式..." rows="4">' + this.escapeHtml(curCSS) + '</textarea>';
+    html += '</div>';
+    html += '<button class="vn-save-btn" onclick="VN.saveCustomCSS()">保存CSS</button>';
+
+    panel.innerHTML = html;
+    document.getElementById('vn-style-picker').classList.add('active');
+  },
+
+  applyDialogColor() {
+    const color = document.getElementById('vn-dialog-color').value;
+    // Convert hex to rgba with transparency
+    const r = parseInt(color.substring(1, 3), 16);
+    const g = parseInt(color.substring(3, 5), 16);
+    const b = parseInt(color.substring(5, 7), 16);
+    const rgba = 'rgba(' + r + ',' + g + ',' + b + ',0.65)';
+    document.getElementById('vn-dialog').style.backgroundColor = rgba;
+    if (this.char) {
+      this.char.vnDialogBgColor = rgba;
+      this.saveChar();
+    }
+  },
+
+  clearDialogColor() {
+    document.getElementById('vn-dialog').style.backgroundColor = '';
+    if (this.char) {
+      this.char.vnDialogBgColor = null;
+      this.saveChar();
+    }
+  },
+
+  saveCustomCSS() {
+    const css = document.getElementById('vn-custom-css-input').value;
+    document.getElementById('vn-custom-css').textContent = css;
+    if (this.char) {
+      this.char.vnCustomCSS = css;
+      this.saveChar();
+    }
+    document.getElementById('vn-style-picker').classList.remove('active');
+  },
+
+  setDialogStyle(style) {
+    this.applyDialogStyle(style);
+    if (this.char) {
+      this.char.vnDialogStyle = style;
+      this.saveChar();
+    }
+    document.getElementById('vn-style-picker').classList.remove('active');
+  },
+
+  applyDialogStyle(style) {
+    const dialog = document.getElementById('vn-dialog');
+    dialog.classList.remove('style-noframe', 'style-classic');
+    if (style && style !== 'default') dialog.classList.add(style);
+  },
+
+  // ---------- ⑦ 字号增强 ----------
+  openFontPicker() {
+    const panel = document.getElementById('font-panel');
+    const cur = this.char?.vnFontSize || 16;
+    const curFontUrl = this.char?.vnFontUrl || '';
+    const sizes = [14, 16, 18, 20];
+
+    let html = '<h3>字号设置</h3><div>';
+    html += sizes.map(s =>
+      '<div class="font-option' + (cur === s ? ' active' : '') + '" onclick="VN.setFontSize(' + s + ')">' + s + 'px</div>'
+    ).join('');
+    html += '</div>';
+
+    // 自定义字号
+    html += '<div class="vn-form-group">';
+    html += '<label>自定义字号</label>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<input type="number" id="vn-custom-fontsize" value="' + cur + '" min="10" max="40" style="width:80px;" />';
+    html += '<span style="font-size:13px;color:#666;">px</span>';
+    html += '<button class="vn-save-btn" style="width:auto;margin:0;padding:6px 12px;" onclick="VN.applyCustomFontSize()">应用</button>';
+    html += '</div></div>';
+
+    // URL字体
+    html += '<div class="vn-form-group">';
+    html += '<label>自定义字体URL</label>';
+    html += '<input type="text" id="vn-font-url" value="' + this.escapeAttr(curFontUrl) + '" placeholder="输入字体文件URL (.woff2/.ttf等)" />';
+    html += '</div>';
+    html += '<button class="vn-save-btn" onclick="VN.applyFontUrl()">加载字体</button>';
+
+    panel.innerHTML = html;
+    document.getElementById('vn-font-picker').classList.add('active');
+  },
+
+  setFontSize(size) {
+    this.applyFontSize(size);
+    if (this.char) {
+      this.char.vnFontSize = size;
+      this.saveChar();
+    }
+    document.getElementById('vn-font-picker').classList.remove('active');
+  },
+
+  applyCustomFontSize() {
+    const size = parseInt(document.getElementById('vn-custom-fontsize').value) || 16;
+    this.applyFontSize(size);
+    if (this.char) {
+      this.char.vnFontSize = size;
+      this.saveChar();
+    }
+    document.getElementById('vn-font-picker').classList.remove('active');
+  },
+
+  applyFontSize(size) {
+    document.getElementById('dialog-text').style.fontSize = size + 'px';
+  },
+
+  applyFontUrl() {
+    const url = document.getElementById('vn-font-url').value.trim();
+    if (!url) {
+      // 清除字体
+      document.getElementById('vn-custom-font').textContent = '';
+      if (this.char) {
+        this.char.vnFontUrl = '';
+        this.saveChar();
+      }
+      document.getElementById('vn-font-picker').classList.remove('active');
+      return;
+    }
+
+    this.loadFontUrl(url);
+    if (this.char) {
+      this.char.vnFontUrl = url;
+      this.saveChar();
+    }
+    document.getElementById('vn-font-picker').classList.remove('active');
+  },
+
+  loadFontUrl(url) {
+    if (!url) return;
+    const css = '@font-face { font-family: "VNCustomFont"; src: url("' + url + '"); }\n'
+      + '#vn-dialog .dialog-text, #vn-input { font-family: "VNCustomFont", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif !important; }';
+    document.getElementById('vn-custom-font').textContent = css;
+  },
+
+  // ---------- 编辑当前文字 ----------
+  editCurrentText() {
+    if (this.isWaiting || this.isLoading) return;
+    const textEl = document.getElementById('dialog-text');
+    const current = textEl.innerText;
+    const ta = document.createElement('textarea');
+    ta.value = current;
+    ta.style.cssText = 'width:100%;min-height:80px;background:rgba(0,0,0,0.06);border:1px solid rgba(0,0,0,0.15);border-radius:8px;color:#222;font-size:inherit;padding:8px;resize:vertical;font-family:inherit;';
+    textEl.innerHTML = '';
+    textEl.appendChild(ta);
+    ta.focus();
+
+    const save = () => {
+      const newText = ta.value.trim();
+      if (newText && this.paraIndex < this.paragraphs.length) {
+        this.paragraphs[this.paraIndex] = newText;
+      }
+      textEl.innerHTML = newText || current;
+    };
+    ta.addEventListener('blur', save);
+  },
+
+  // ---------- 正则替换(持久化规则，参考QQ群聊) ----------
+  openRegex() {
+    const char = this.char;
+    if (!char) return;
+    if (!char.regexRules) char.regexRules = [];
+
+    const panel = document.getElementById('regex-panel');
+    let html = '<h3>查找替换正则</h3>';
+    html += '<div style="font-size:12px;color:#888;margin-bottom:10px;">正则查找替换，应用于AI回复内容。支持HTML代码美化。</div>';
+
+    html += '<div id="regex-rule-list">';
+    char.regexRules.forEach((rule, i) => {
+      html += '<div class="regex-rule-card">'
+        + '<div class="regex-rule-header">'
+        + '<span class="regex-rule-name">' + this.escapeHtml(rule.name || '规则' + (i + 1)) + '</span>'
+        + '<div class="regex-rule-actions">'
+        + '<label class="mini-switch"><input type="checkbox" ' + (rule.enabled ? 'checked' : '') + ' onchange="VN.toggleRegexRule(' + i + ', this.checked)"><span class="mini-slider"></span></label>'
+        + '<button onclick="VN.editRegexRule(' + i + ')">✏</button>'
+        + '<button onclick="VN.deleteRegexRule(' + i + ')">🗑</button>'
+        + '</div></div>'
+        + '<div class="regex-rule-preview"><code>' + this.escapeHtml(rule.find) + '</code> → <code>' + this.escapeHtml((rule.replace || '').substring(0, 30)) + '</code></div>'
+        + '</div>';
+    });
+    if (char.regexRules.length === 0) {
+      html += '<div style="text-align:center;color:rgba(0,0,0,0.35);padding:16px;font-size:13px;">暂无规则，点击下方添加</div>';
+    }
+    html += '</div>';
+    html += '<button class="vn-save-btn" style="background:#4CAF50;color:#fff;margin-top:8px;" onclick="VN.addRegexRule()">+ 添加规则</button>';
+
+    panel.innerHTML = html;
+    document.getElementById('vn-regex-picker').classList.add('active');
+  },
+
+  toggleRegexRule(index, enabled) {
+    if (!this.char || !this.char.regexRules[index]) return;
+    this.char.regexRules[index].enabled = enabled;
+    this.saveChar();
+  },
+
+  addRegexRule() {
+    const panel = document.getElementById('regex-panel');
+    panel.innerHTML = '<h3>添加正则规则</h3>'
+      + '<div class="regex-row"><input id="regex-name" placeholder="规则名称（如: 动作美化）" /></div>'
+      + '<div class="regex-row"><input id="regex-find" placeholder="查找（正则语法）" /></div>'
+      + '<div style="font-size:11px;color:#888;margin:-6px 0 8px;">使用JavaScript正则语法</div>'
+      + '<div class="regex-row"><textarea id="regex-replace" rows="3" placeholder="替换为（支持$1-$9捕获组、HTML）"></textarea></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+      + '<label class="mini-switch"><input type="checkbox" id="regex-global" checked><span class="mini-slider"></span></label>'
+      + '<span style="font-size:13px;color:#555;">全局匹配 (g)</span></div>'
+      + '<div style="display:flex;gap:8px;">'
+      + '<button class="vn-save-btn" style="flex:1;" onclick="VN.saveNewRegexRule()">保存</button>'
+      + '<button class="vn-save-btn" style="flex:1;" onclick="VN.openRegex()">返回</button>'
+      + '</div>';
+  },
+
+  saveNewRegexRule() {
+    const name = document.getElementById('regex-name').value.trim();
+    const find = document.getElementById('regex-find').value.trim();
+    const replace = document.getElementById('regex-replace').value;
+    const global = document.getElementById('regex-global').checked;
+
+    if (!find) { alert('请输入查找正则'); return; }
+    try { new RegExp(find); } catch (e) { alert('正则语法错误: ' + e.message); return; }
+
+    if (!this.char.regexRules) this.char.regexRules = [];
+    this.char.regexRules.push({ name: name || '规则', find, replace, global, enabled: true });
+    this.saveChar();
+    this.openRegex();
+  },
+
+  editRegexRule(index) {
+    const rule = this.char?.regexRules?.[index];
+    if (!rule) return;
+    const panel = document.getElementById('regex-panel');
+    panel.innerHTML = '<h3>编辑正则规则</h3>'
+      + '<div class="regex-row"><input id="regex-name" value="' + this.escapeAttr(rule.name || '') + '" placeholder="规则名称" /></div>'
+      + '<div class="regex-row"><input id="regex-find" value="' + this.escapeAttr(rule.find) + '" placeholder="查找（正则语法）" /></div>'
+      + '<div class="regex-row"><textarea id="regex-replace" rows="3" placeholder="替换为">' + this.escapeHtml(rule.replace || '') + '</textarea></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+      + '<label class="mini-switch"><input type="checkbox" id="regex-global" ' + (rule.global ? 'checked' : '') + '><span class="mini-slider"></span></label>'
+      + '<span style="font-size:13px;color:#555;">全局匹配 (g)</span></div>'
+      + '<div style="display:flex;gap:8px;">'
+      + '<button class="vn-save-btn" style="flex:1;" onclick="VN.saveEditRegexRule(' + index + ')">保存</button>'
+      + '<button class="vn-save-btn" style="flex:1;" onclick="VN.openRegex()">返回</button>'
+      + '</div>';
+  },
+
+  saveEditRegexRule(index) {
+    const rule = this.char?.regexRules?.[index];
+    if (!rule) return;
+    const find = document.getElementById('regex-find').value.trim();
+    if (!find) { alert('请输入查找正则'); return; }
+    try { new RegExp(find); } catch (e) { alert('正则语法错误: ' + e.message); return; }
+
+    rule.name = document.getElementById('regex-name').value.trim() || rule.name;
+    rule.find = find;
+    rule.replace = document.getElementById('regex-replace').value;
+    rule.global = document.getElementById('regex-global').checked;
+    this.saveChar();
+    this.openRegex();
+  },
+
+  deleteRegexRule(index) {
+    if (!confirm('确定删除此规则？')) return;
+    this.char.regexRules.splice(index, 1);
+    this.saveChar();
+    this.openRegex();
+  },
+
+  applyRegexRules(text) {
+    // 内置：清除模型思维链
+    let result = text.replace(/<(?:think|thinking)>[\s\S]*?<\/(?:think|thinking)>/g, '');
+    const rules = this.char?.regexRules || [];
+    if (rules.length === 0) return result;
+    rules.forEach(rule => {
+      if (!rule.enabled) return;
+      try {
+        const flags = rule.global ? 'g' : '';
+        const regex = new RegExp(rule.find, flags);
+        result = result.replace(regex, rule.replace);
+      } catch (e) {
+        console.error('正则替换错误:', e);
+      }
+    });
+    return result;
+  },
+
+  // ---------- 弹层关闭 ----------
+  closePicker(event, id) {
+    if (event.target === event.currentTarget) {
+      document.getElementById(id).classList.remove('active');
+    }
+  },
+
+  // ---------- 工具 ----------
+  escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+  escapeAttr(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  },
+
+  // ---------- ④ 立绘缩放 ----------
+  spriteZoomIn() {
+    this._spriteZoom(0.1);
+  },
+  spriteZoomOut() {
+    this._spriteZoom(-0.1);
+  },
+  spriteZoomReset() {
+    if (!this.char) return;
+    this.char.vnSpriteScale = 1;
+    const sprite = document.getElementById('vn-sprite');
+    const tx = sprite.classList.contains('positioned') ? '' : 'translateX(-50%)';
+    sprite.style.transform = tx;
+    this.saveChar();
+  },
+  _spriteZoom(delta) {
+    if (!this.char) return;
+    let scale = (this.char.vnSpriteScale || 1) + delta;
+    scale = Math.max(0.3, Math.min(3, scale));
+    this.char.vnSpriteScale = scale;
+    const sprite = document.getElementById('vn-sprite');
+    const tx = sprite.classList.contains('positioned') ? '' : 'translateX(-50%) ';
+    sprite.style.transform = tx + 'scale(' + scale + ')';
+    this.saveChar();
+  }
+};
+
+// 回车发送
+document.getElementById('vn-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    VN.sendMessage();
+  }
+});
+
+// 启动
+VN.init();
+</script>
 </body>
 </html>

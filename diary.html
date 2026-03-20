@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日记</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'KaiTi', 'STKaiti', serif;
+      background: #f5e6d3;
+      overflow: hidden;
+      user-select: none;
+    }
+    #diary-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #diary-page {
+      position: relative;
+      width: 90vw;
+      max-width: 600px;
+      height: 85vh;
+      background: #fff8e7;
+      border: 2px solid #8b7355;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      padding: 40px 30px;
+      overflow: hidden;
+    }
+    #diary-header {
+      position: relative;
+      z-index: 1;
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+    #diary-content {
+      position: relative;
+      z-index: 1;
+      font-size: 18px;
+      line-height: 36px;
+      color: #222;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 35px,
+        #d4a57466 35px,
+        #d4a57466 36px
+      );
+      background-size: 100% 36px;
+      min-height: 50vh;
+    }
+    .diary-image {
+      position: absolute;
+      cursor: move;
+      border: 1px dashed transparent;
+      z-index: 10;
+      touch-action: none;
+    }
+    .diary-image:hover, .diary-image:active {
+      border-color: #999;
+    }
+    .diary-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .diary-image .resize-handle {
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      width: 16px;
+      height: 16px;
+      background: #8b7355;
+      border-radius: 50%;
+      cursor: nwse-resize;
+      touch-action: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .diary-image:hover .resize-handle,
+    .diary-image:active .resize-handle {
+      opacity: 1;
+    }
+    .btn {
+      position: fixed;
+      width: 50px;
+      height: 50px;
+      background: rgba(255,255,255,0.7);
+      border: none;
+      border-radius: 8px;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 100;
+    }
+    .btn:active { background: rgba(255,255,255,0.9); }
+    #btn-back { top: 20px; left: 20px; }
+    #btn-customize { top: 20px; right: 20px; }
+    #btn-delete { bottom: 20px; right: 20px; }
+    #btn-prev, #btn-next {
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.5);
+    }
+    #btn-prev { left: 10px; }
+    #btn-next { right: 10px; }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 400px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .panel h3 { margin-bottom: 15px; }
+    .panel label { display: block; margin: 10px 0 5px; font-size: 14px; }
+    .panel input[type="color"] { width: 60px; height: 36px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+    .panel input[type="file"] { padding: 8px 0; }
+    .panel textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; min-height: 80px; font-family: monospace; font-size: 13px; }
+    .panel-btn { margin: 10px 5px 0 0; padding: 8px 20px; cursor: pointer; border: none; border-radius: 6px; font-size: 14px; }
+    .panel-btn.primary { background: #8b7355; color: white; }
+    .panel-btn.secondary { background: #ddd; color: #333; }
+    .img-item {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px; padding: 8px;
+      background: #f5f5f5; border-radius: 6px;
+    }
+    .img-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
+    .img-item span { flex: 1; font-size: 12px; color: #666; }
+    .img-item button {
+      padding: 4px 10px; background: #e74c3c; color: white;
+      border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+    }
+    .flip-animation { animation: flip 0.6s ease-in-out; }
+    @keyframes flip {
+      0% { transform: rotateY(0deg); }
+      50% { transform: rotateY(90deg); }
+      100% { transform: rotateY(0deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="diary-container">
+    <div id="diary-page">
+      <div id="diary-header"></div>
+      <div id="diary-content"></div>
+    </div>
+    <button id="btn-back" class="btn">←</button>
+    <button id="btn-customize" class="btn">✾</button>
+    <button id="btn-delete" class="btn">✗</button>
+    <button id="btn-prev" class="btn" style="display:none;">‹</button>
+    <button id="btn-next" class="btn" style="display:none;">›</button>
+  </div>
+
+  <div id="customize-overlay" class="overlay">
+    <div class="panel">
+      <h3>日记样式自定义</h3>
+      <label>日记背景颜色</label>
+      <input type="color" id="input-bg-color" value="#fff8e7">
+      <label>字体颜色</label>
+      <input type="color" id="input-text-color" value="#222222">
+      <label>上传装饰图片</label>
+      <input type="file" id="input-image" accept="image/*">
+      <div id="image-list" style="margin-top:10px;"></div>
+      <label>自定义CSS</label>
+      <textarea id="input-custom-css" placeholder="例如: #diary-page { font-size: 20px; }"></textarea>
+      <label>自定义字体URL</label>
+      <input type="text" id="input-font-url" placeholder="输入字体文件URL（.woff2/.ttf/.otf）" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+      <div style="font-size:11px;color:#999;margin-top:4px;">填入后日记正文将使用该字体</div>
+      <div style="margin-top:15px;text-align:right;">
+        <button class="panel-btn secondary" id="btn-cancel-style">取消</button>
+        <button class="panel-btn primary" id="btn-save-style">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+/* ========== 独立日记数据库 ========== */
+function openDiaryDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('DiaryDB', 1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('diaries')) {
+        const store = db.createObjectStore('diaries', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('charId', 'charId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('styles')) {
+        db.createObjectStore('styles');
+      }
+    };
+  });
+}
+
+function idbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = key !== undefined ? store.get(key) : store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAll(source) {
+  return new Promise((resolve, reject) => {
+    const req = source.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbPut(store, value, key) {
+  return new Promise((resolve, reject) => {
+    const req = key !== undefined ? store.put(value, key) : store.put(value);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = store.delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* ========== 日记应用 ========== */
+const app = {
+  charId: null,
+  diaries: [],
+  currentIndex: 0,
+  currentPage: 0,
+  pages: [],
+  globalStyle: { bgColor: '#fff8e7', textColor: '#222222', customCSS: '', images: [], fontUrl: '' },
+
+  async init() {
+    try {
+      const params = new URLSearchParams(location.search);
+      this.charId = params.get('charId');
+
+      const db = await openDiaryDB();
+
+      // 加载全局样式
+      const styleTx = db.transaction('styles', 'readonly');
+      const saved = await idbGet(styleTx.objectStore('styles'), 'global');
+      if (saved) this.globalStyle = saved;
+
+      // 加载日记
+      const diaryTx = db.transaction('diaries', 'readonly');
+      const store = diaryTx.objectStore('diaries');
+      let all;
+      if (this.charId) {
+        all = await idbGetAll(store.index('charId'));
+        all = all.filter(d => d.charId === this.charId);
+      } else {
+        all = await idbGetAll(store);
+      }
+      this.diaries = all.sort((a, b) => b.timestamp - a.timestamp);
+
+      db.close();
+    } catch (e) {
+      console.error('日记初始化失败:', e);
+    }
+
+    // 无论加载是否成功，都绑定事件和渲染界面
+    this.bindEvents();
+    this.applyGlobalStyle();
+
+    if (this.diaries.length === 0) {
+      this.showEmptyDiary();
+    } else {
+      this.showDiary(0);
+    }
+  },
+
+  applyGlobalStyle() {
+    const page = document.getElementById('diary-page');
+    const content = document.getElementById('diary-content');
+    page.style.background = this.globalStyle.bgColor;
+    content.style.color = this.globalStyle.textColor;
+
+    let styleEl = document.getElementById('custom-style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'custom-style';
+      document.head.appendChild(styleEl);
+    }
+    let css = this.globalStyle.customCSS || '';
+
+    // 自定义字体
+    if (this.globalStyle.fontUrl) {
+      css = '@font-face { font-family: "DiaryCustomFont"; src: url("' + this.globalStyle.fontUrl + '"); }\n'
+          + '#diary-content, #diary-header { font-family: "DiaryCustomFont", "KaiTi", "STKaiti", serif; }\n'
+          + css;
+    }
+    styleEl.textContent = css;
+
+    // 装饰图片
+    document.querySelectorAll('.diary-image').forEach(el => el.remove());
+    if (this.globalStyle.images && this.globalStyle.images.length > 0) {
+      this.globalStyle.images.forEach(img => {
+        this.createImageElement(img, page);
+      });
+    }
+  },
+
+  createImageElement(img, parent) {
+    const div = document.createElement('div');
+    div.className = 'diary-image';
+    div.style.left = img.x + 'px';
+    div.style.top = img.y + 'px';
+    div.style.width = img.width + 'px';
+    div.style.height = img.height + 'px';
+    div.innerHTML = '<img src="' + img.src + '"><div class="resize-handle"></div>';
+    parent.appendChild(div);
+    this.makeDraggable(div);
+    this.makeResizable(div);
+    return div;
+  },
+
+  showEmptyDiary() {
+    document.getElementById('diary-header').textContent =
+      '日记本\n' + new Date().toLocaleString('zh-CN') + '\n晴';
+    document.getElementById('diary-content').textContent = '暂无日记...';
+    document.getElementById('btn-delete').style.display = 'none';
+  },
+
+  showDiary(index) {
+    if (index < 0 || index >= this.diaries.length) return;
+    this.currentIndex = index;
+    const diary = this.diaries[index];
+
+    document.getElementById('diary-header').textContent =
+      (diary.charName || '未知') + '\n' +
+      new Date(diary.timestamp).toLocaleString('zh-CN') + '\n' +
+      (diary.weather || '晴');
+
+    this.pages = this.paginate(diary.content || '');
+    this.currentPage = 0;
+    this.renderPage();
+    document.getElementById('btn-delete').style.display = 'flex';
+  },
+
+  paginate(text) {
+    const maxChars = 400;
+    const pages = [];
+    let current = '';
+    for (const ch of text) {
+      current += ch;
+      if (current.length >= maxChars) {
+        pages.push(current);
+        current = '';
+      }
+    }
+    if (current) pages.push(current);
+    return pages.length > 0 ? pages : [''];
+  },
+
+  renderPage() {
+    document.getElementById('diary-content').textContent = this.pages[this.currentPage] || '';
+    document.getElementById('btn-prev').style.display = this.currentPage > 0 ? 'flex' : 'none';
+    document.getElementById('btn-next').style.display = this.currentPage < this.pages.length - 1 ? 'flex' : 'none';
+  },
+
+  flipPage(dir) {
+    const next = this.currentPage + dir;
+    if (next < 0 || next >= this.pages.length) return;
+    this.currentPage = next;
+    const el = document.getElementById('diary-page');
+    el.classList.add('flip-animation');
+    setTimeout(() => {
+      this.renderPage();
+      el.classList.remove('flip-animation');
+    }, 300);
+  },
+
+  // ========== 样式自定义 ==========
+  openCustomize() {
+    document.getElementById('input-bg-color').value = this.globalStyle.bgColor;
+    document.getElementById('input-text-color').value = this.globalStyle.textColor;
+    document.getElementById('input-custom-css').value = this.globalStyle.customCSS || '';
+    document.getElementById('input-font-url').value = this.globalStyle.fontUrl || '';
+    this.renderImageList();
+    document.getElementById('customize-overlay').classList.add('show');
+  },
+
+  closeCustomize() {
+    document.getElementById('customize-overlay').classList.remove('show');
+  },
+
+  renderImageList() {
+    const list = document.getElementById('image-list');
+    if (!this.globalStyle.images || this.globalStyle.images.length === 0) {
+      list.innerHTML = '<div style="color:#999;font-size:12px;">暂无装饰图片</div>';
+      return;
+    }
+    list.innerHTML = this.globalStyle.images.map((img, i) =>
+      '<div class="img-item">' +
+        '<img src="' + img.src + '">' +
+        '<span>图片 ' + (i + 1) + '</span>' +
+        '<button onclick="app.removeImage(' + i + ')">删除</button>' +
+      '</div>'
+    ).join('');
+  },
+
+  removeImage(index) {
+    this.globalStyle.images.splice(index, 1);
+    this.renderImageList();
+  },
+
+  async saveCustomization() {
+    this.globalStyle.bgColor = document.getElementById('input-bg-color').value;
+    this.globalStyle.textColor = document.getElementById('input-text-color').value;
+    this.globalStyle.customCSS = document.getElementById('input-custom-css').value;
+    this.globalStyle.fontUrl = document.getElementById('input-font-url').value.trim();
+
+    // 收集当前页面上的装饰图片位置
+    const imgs = [];
+    document.querySelectorAll('.diary-image').forEach(el => {
+      const imgEl = el.querySelector('img');
+      if (imgEl) {
+        imgs.push({
+          src: imgEl.src,
+          x: parseInt(el.style.left) || 50,
+          y: parseInt(el.style.top) || 100,
+          width: parseInt(el.style.width) || 150,
+          height: parseInt(el.style.height) || 150
+        });
+      }
+    });
+    this.globalStyle.images = imgs;
+
+    try {
+      const db = await openDiaryDB();
+      const tx = db.transaction('styles', 'readwrite');
+      await idbPut(tx.objectStore('styles'), this.globalStyle, 'global');
+      db.close();
+    } catch (e) {
+      console.error('保存样式失败:', e);
+    }
+
+    this.closeCustomize();
+    this.applyGlobalStyle();
+  },
+
+  // ========== 删除日记 ==========
+  async deleteDiary() {
+    if (this.diaries.length === 0) return;
+    if (!confirm('确定删除这篇日记吗？')) return;
+
+    const diary = this.diaries[this.currentIndex];
+    try {
+      const db = await openDiaryDB();
+      const tx = db.transaction('diaries', 'readwrite');
+      await idbDelete(tx.objectStore('diaries'), diary.id);
+      db.close();
+    } catch (e) {
+      console.error('删除日记失败:', e);
+    }
+
+    this.diaries.splice(this.currentIndex, 1);
+    if (this.diaries.length === 0) {
+      this.showEmptyDiary();
+    } else {
+      this.showDiary(Math.max(0, this.currentIndex - 1));
+    }
+  },
+
+  // ========== 拖动和缩放（事件委托，避免内存泄漏） ==========
+  _dragState: null,
+  _resizeState: null,
+
+  initDragResize() {
+    const getTarget = (e) => {
+      const handle = e.target.closest('.resize-handle');
+      if (handle) return { type: 'resize', el: handle.closest('.diary-image') };
+      const img = e.target.closest('.diary-image');
+      if (img) return { type: 'drag', el: img };
+      return null;
+    };
+
+    const onDown = (e) => {
+      const t = getTarget(e);
+      if (!t) return;
+      const ev = e.touches ? e.touches[0] : e;
+      e.preventDefault();
+      if (t.type === 'resize') {
+        e.stopPropagation();
+        this._resizeState = {
+          el: t.el,
+          sx: ev.clientX, sy: ev.clientY,
+          sw: parseInt(t.el.style.width) || 150,
+          sh: parseInt(t.el.style.height) || 150
+        };
+      } else {
+        this._dragState = {
+          el: t.el,
+          sx: ev.clientX, sy: ev.clientY,
+          sl: parseInt(t.el.style.left) || 0,
+          st: parseInt(t.el.style.top) || 0
+        };
+      }
+    };
+
+    const onMove = (e) => {
+      const ev = e.touches ? e.touches[0] : e;
+      if (this._dragState) {
+        const d = this._dragState;
+        d.el.style.left = (d.sl + ev.clientX - d.sx) + 'px';
+        d.el.style.top = (d.st + ev.clientY - d.sy) + 'px';
+      }
+      if (this._resizeState) {
+        const r = this._resizeState;
+        r.el.style.width = Math.max(30, r.sw + ev.clientX - r.sx) + 'px';
+        r.el.style.height = Math.max(30, r.sh + ev.clientY - r.sy) + 'px';
+      }
+    };
+
+    const onUp = () => {
+      this._dragState = null;
+      this._resizeState = null;
+    };
+
+    const page = document.getElementById('diary-page');
+    page.addEventListener('mousedown', onDown);
+    page.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+  },
+
+  // 保留方法签名兼容，但不再逐个绑定
+  makeDraggable(el) {},
+  makeResizable(el) {},
+
+  // ========== 事件绑定 ==========
+  bindEvents() {
+    this.initDragResize();
+    document.getElementById('btn-back').addEventListener('click', () => history.back());
+    document.getElementById('btn-customize').addEventListener('click', () => this.openCustomize());
+    document.getElementById('btn-delete').addEventListener('click', () => this.deleteDiary());
+    document.getElementById('btn-prev').addEventListener('click', () => this.flipPage(-1));
+    document.getElementById('btn-next').addEventListener('click', () => this.flipPage(1));
+    document.getElementById('btn-save-style').addEventListener('click', () => this.saveCustomization());
+    document.getElementById('btn-cancel-style').addEventListener('click', () => this.closeCustomize());
+
+    document.getElementById('input-image').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (!this.globalStyle.images) this.globalStyle.images = [];
+        const imgData = { src: ev.target.result, x: 50, y: 100, width: 150, height: 150 };
+        this.globalStyle.images.push(imgData);
+        this.renderImageList();
+        this.createImageElement(imgData, document.getElementById('diary-page'));
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+  }
+};
+
+app.init();
+  </script>
+</body>
+</html>
