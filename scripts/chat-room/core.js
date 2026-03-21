@@ -229,11 +229,8 @@ const ChatCore = {
   },
 
   async callAI() {
-    // 取最后一条用户消息作为 context
-    const contextMsgs = await this.getContextMessages();
-    const lastUserMsg = [...contextMsgs].reverse().find(m => m.type === 'sent');
-    const userMessage = lastUserMsg ? lastUserMsg.content : '[继续]';
-    await this.generateReply(userMessage);
+    // 取最后一条用户消息作为 context，但不额外传递userMessage避免重复
+    await this.generateReply(null);
   },
 
   async saveMessage(msg) {
@@ -428,7 +425,21 @@ const ChatCore = {
         });
 
         console.log('群聊发送消息:', messages);
+
+        // 保存生成上下文，以便用户退出后可后台继续
+        this._pendingGenContext = {
+          messages,
+          apiConfig,
+          chatId: this.currentChatId,
+          charId: char.id,
+          charName: char.name,
+          charAvatar: char.avatar,
+          isGroup: true,
+          members: (char.members || []).map(m => ({ name: m.name, avatar: m.avatar }))
+        };
+
         const reply = await ChatAI.callAPI(messages, apiConfig);
+        this._pendingGenContext = null;
         ChatUI.hideTyping();
 
         const parsed = ChatAI.parseResponse(reply, true);
@@ -548,8 +559,65 @@ const ChatCore = {
 
       console.log('发送消息:', messages); // 调试用
 
-      const reply = await ChatAI.callAPI(messages, apiConfig);
-      ChatUI.hideTyping();
+      // 保存生成上下文，以便用户退出后可后台继续
+      this._pendingGenContext = {
+        messages,
+        apiConfig,
+        chatId: this.currentChatId,
+        charId: char.id,
+        charName: char.name,
+        charAvatar: char.avatar,
+        isGroup: false
+      };
+
+      const isStream = localStorage.getItem('ai_stream') === 'true';
+      let reply;
+
+      if (isStream) {
+        // 流式传输：创建空气泡逐字显示
+        ChatUI.hideTyping();
+        const streamMsgId = ChatUtils.generateMsgId();
+        ChatUI.addMessage({
+          content: '...',
+          type: 'received',
+          sender: char.name,
+          avatar: char.avatar,
+          msgId: streamMsgId
+        });
+        const streamBubble = document.querySelector(`[data-msg-id="${streamMsgId}"] .message-bubble`);
+
+        this._abortController = new AbortController();
+        this._isGenerating = true;
+
+        reply = await ChatAI.callAPIStream(messages, apiConfig, (delta, full) => {
+          if (streamBubble) {
+            // 实时显示（去掉标签后的可读内容）
+            const display = full.replace(/<status>[\s\S]*?<\/status>/gi, '')
+              .replace(/<(msg|voice)(?:\s+[^>]*)?\s*>/gi, '')
+              .replace(/<\/(msg|voice)>/gi, '\n')
+              .replace(/<[^>]+>/g, '')
+              .trim();
+            streamBubble.innerHTML = ChatUtils.parseMarkdown(display || '...');
+            ChatUI.scrollToBottom();
+          }
+        }, this._abortController.signal);
+
+        this._isGenerating = false;
+        this._abortController = null;
+        this._pendingGenContext = null;
+
+        // 移除流式气泡，后面按正常解析重新渲染
+        const streamEl = document.querySelector(`[data-msg-id="${streamMsgId}"]`);
+        if (streamEl) streamEl.remove();
+      } else {
+        this._isGenerating = true;
+        this._abortController = new AbortController();
+        reply = await ChatAI.callAPI(messages, apiConfig, this._abortController.signal);
+        this._isGenerating = false;
+        this._abortController = null;
+        this._pendingGenContext = null;
+        ChatUI.hideTyping();
+      }
 
       const parsed = ChatAI.parseResponse(reply);
 
@@ -572,7 +640,9 @@ const ChatCore = {
         this.saveCharacter();
       }
 
-      for (const content of parsed.floors) {
+      for (const floor of parsed.floors) {
+        const content = typeof floor === 'string' ? floor : floor.content;
+        const floorQuote = typeof floor === 'string' ? null : floor.quote;
         if (!content) continue;
         const replyId = ChatUtils.generateMsgId();
         // 应用正则替换规则
@@ -583,12 +653,22 @@ const ChatCore = {
           processedContent = ChatGroup.applyRegexRules(processedContent);
         }
 
+        // 构建引用数据（AI主动引用用户的话）
+        let aiQuoteData = null;
+        if (floorQuote) {
+          aiQuoteData = {
+            quoteSender: this.userSettings?.name || '用户',
+            quoteContent: floorQuote
+          };
+        }
+
         ChatUI.addMessage({
           content: processedContent,
           type: 'received',
           sender: char.name,
           avatar: char.avatar,
-          msgId: replyId
+          msgId: replyId,
+          quoteData: aiQuoteData
         });
 
         await this.saveMessage({
@@ -837,8 +917,13 @@ const ChatCore = {
   },
 
   goBack() {
+    // 如果正在生成，保存上下文让后台继续完成
+    if (this._isGenerating && this._pendingGenContext) {
+      localStorage.setItem('pendingGeneration', JSON.stringify(this._pendingGenContext));
+      ChatUtils.showToast('AI回复将在后台继续生成');
+    }
+
     // 使用 replace 避免历史记录堆积
-    // 或者检查是否有历史可以返回
     if (document.referrer && document.referrer.includes('chat.html')) {
       history.back();
     } else {

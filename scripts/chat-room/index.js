@@ -116,10 +116,12 @@ function openGroupSummary() { closeGroupPlus(); ChatGroup.openGroupSummary(); }
 function openGroupUserPersona() { closeGroupPlus(); ChatGroup.openGroupUserPersona(); }
 // 收藏消息
 function openFavorites() { closeGroupPlus(); ChatGroup.openFavorites(); }
+function openFavoritesFromSettings() { closeSettingsModal(); ChatGroup.openFavorites(); }
 function closeFavorites() { ChatUI.hideModal('favorites-modal'); }
 
 // 查找聊天记录
 function openSearchHistory() { closeGroupPlus(); ChatGroup.openSearchHistory(); }
+function openSearchHistoryFromSettings() { closeSettingsModal(); ChatGroup.openSearchHistory(); }
 function closeSearchHistory() { ChatUI.hideModal('search-history-modal'); }
 let _searchDebounce = null;
 function searchHistoryDebounce() {

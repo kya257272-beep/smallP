@@ -9,10 +9,17 @@ const ChatAI = {
     // 获取提示词条目顺序
     const promptEntries = character.promptEntries || [
       { id: 'char_persona', name: '角色人设', type: 'fixed', enabled: true },
+      { id: 'mes_example', name: '对话示例', type: 'fixed', enabled: true },
       { id: 'user_persona', name: '用户人设', type: 'fixed', enabled: true },
       { id: 'summary', name: '总结信息', type: 'fixed', enabled: true },
       { id: 'chat_history', name: '聊天记录', type: 'fixed', enabled: true }
     ];
+
+    // 兼容旧数据：如果已有promptEntries但没有mes_example条目，自动补入char_persona之后
+    if (character.promptEntries && !character.promptEntries.find(e => e.id === 'mes_example')) {
+      const idx = promptEntries.findIndex(e => e.id === 'char_persona');
+      promptEntries.splice(idx + 1, 0, { id: 'mes_example', name: '对话示例', type: 'fixed', enabled: true });
+    }
 
     let systemContent = '';
 
@@ -33,6 +40,9 @@ const ChatAI = {
         if (character.perceptionSettings?.dateAware) {
           systemContent += `\n当前日期: ${ChatUtils.getDateContext()}`;
         }
+        if (character.perceptionSettings?.weatherAware) {
+          systemContent += `\n当前天气: ${ChatUtils.getWeatherContext()}`;
+        }
         if (character.outfit) systemContent += `\n当前衣着: ${character.outfit}`;
         if (character.location) systemContent += `\n当前地点: ${character.location}`;
         if (character.affection !== undefined) systemContent += `\n对用户好感度: ${character.affection}/100`;
@@ -43,6 +53,11 @@ const ChatAI = {
         systemContent += `用户: ${userName}`;
         if (userSettings?.persona) systemContent += ` - ${userSettings.persona}`;
         systemContent += '\n\n';
+      } else if (entry.id === 'mes_example') {
+        if (character.mes_example) {
+          const example = character.mes_example.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName);
+          systemContent += `【对话示例】\n${example}\n\n`;
+        }
       } else if (entry.id === 'summary') {
         if (summary) {
           systemContent += `【总结信息】\n`;
@@ -75,6 +90,8 @@ const ChatAI = {
     systemContent += `\n回复格式：将回复拆分为多条短消息，每条用<msg>标签包裹。
 示例：<msg>哈哈真的吗</msg><msg>我也遇到过</msg><msg>太离谱了吧</msg>
 每条5-50字，共1-5条。不要输出标签以外的内容。
+你可以引用用户的话进行回复，格式：<msg quote="被引用的原文">你的回复</msg>
+你也可以在消息中@用户：@${userName}
 你也可以发送语音消息，用<voice>标签包裹，如：<voice>今天天气真好啊</voice>
 语音消息会以语音条形式展示。
 你可以主动给用户转账或发红包：
@@ -93,11 +110,6 @@ location=新地点
 不要解释status标签，直接输出即可。`;
 
     messages.push({ role: 'system', content: systemContent });
-
-    if (character.mes_example) {
-      const example = character.mes_example.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName);
-      messages.push({ role: 'system', content: `对话示例:\n${example}` });
-    }
 
     contextMsgs.forEach(msg => {
       if (msg.type === 'system') {
@@ -123,7 +135,9 @@ location=新地点
       }
     });
 
-    messages.push({ role: 'user', content: userMessage });
+    if (userMessage) {
+      messages.push({ role: 'user', content: userMessage });
+    }
 
     return messages;
   },
@@ -256,15 +270,39 @@ location=新地点
       }
     });
 
-    messages.push({ role: 'user', content: userMessage });
+    if (userMessage) {
+      messages.push({ role: 'user', content: userMessage });
+    }
 
     return messages;
   },
 
-  async callAPI(messages, config) {
+  // 估算token数（中文约1.5字/token，英文约4字符/token，取混合估算）
+  _estimateTokens(text) {
+    if (!text) return 0;
+    const str = typeof text === 'string' ? text : JSON.stringify(text);
+    let cn = 0, other = 0;
+    for (const ch of str) {
+      if (/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)) cn++;
+      else other++;
+    }
+    return Math.ceil(cn / 1.5 + other / 4);
+  },
+
+  // 记录API调用日志到localStorage
+  _logApiCall(log) {
+    try {
+      let logs = JSON.parse(localStorage.getItem('apiCallLogs') || '[]');
+      logs.push(log);
+      // 最多保留100条
+      if (logs.length > 100) logs = logs.slice(-100);
+      localStorage.setItem('apiCallLogs', JSON.stringify(logs));
+    } catch(e) { console.warn('写入API日志失败:', e); }
+  },
+
+  async callAPI(messages, config, signal) {
     let url = config.apiUrl || 'https://api.openai.com/v1/chat/completions';
 
-    // 智能补全URL：兼容各种格式
     url = url.replace(/\/+$/, '');
     if (!url.includes('/chat/completions')) {
       if (url.endsWith('/v1')) {
@@ -276,51 +314,161 @@ location=新地点
 
     const key = config.apiKey;
     const model = config.model || 'gpt-3.5-turbo';
+    const startTime = Date.now();
 
     console.log('请求URL:', url);
     console.log('使用模型:', model);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: config.temperature || 0.8,
-        max_tokens: config.maxTokens || 1000
-      })
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: config.temperature || 0.8,
+          max_tokens: config.maxTokens || 1000
+        }),
+        signal
+      });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('API响应错误:', response.status, errText);
-      throw new Error(`API错误 ${response.status}: ${errText.substring(0, 200)}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('API响应错误:', response.status, errText);
+        const errMsg = `API错误 ${response.status}: ${errText}`;
+        this._logApiCall({ timestamp: startTime, model, error: errMsg });
+        throw new Error(`API错误 ${response.status}: ${errText.substring(0, 200)}`);
+      }
+
+      const data = await response.json();
+      console.log('API响应:', data);
+
+      const content = data.choices?.[0]?.message?.content
+        || data.choices?.[0]?.text
+        || data.response
+        || data.output?.text
+        || '';
+
+      if (!content) {
+        console.warn('API返回空内容，原始数据:', JSON.stringify(data).substring(0, 500));
+      }
+
+      const usage = data.usage || {};
+      this._logApiCall({
+        timestamp: startTime, model,
+        inputTokens: usage.prompt_tokens || this._estimateTokens(messages),
+        outputTokens: usage.completion_tokens || this._estimateTokens(content)
+      });
+      return content;
+    } catch(e) {
+      if (e.name === 'AbortError') {
+        this._logApiCall({ timestamp: startTime, model, error: '请求被取消(AbortError)' });
+      } else if (!e.message.startsWith('API错误')) {
+        this._logApiCall({ timestamp: startTime, model, error: e.message });
+      }
+      throw e;
+    }
+  },
+
+  // 流式传输API调用
+  async callAPIStream(messages, config, onChunk, signal) {
+    let url = config.apiUrl || 'https://api.openai.com/v1/chat/completions';
+    url = url.replace(/\/+$/, '');
+    if (!url.includes('/chat/completions')) {
+      if (url.endsWith('/v1')) {
+        url += '/chat/completions';
+      } else {
+        url += '/v1/chat/completions';
+      }
     }
 
-    const data = await response.json();
-    console.log('API响应:', data);
+    const key = config.apiKey;
+    const model = config.model || 'gpt-3.5-turbo';
+    const startTime = Date.now();
 
-    const content = data.choices?.[0]?.message?.content
-      || data.choices?.[0]?.text
-      || data.response
-      || data.output?.text
-      || '';
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: config.temperature || 0.8,
+          max_tokens: config.maxTokens || 1000,
+          stream: true
+        }),
+        signal
+      });
 
-    if (!content) {
-      console.warn('API返回空内容，原始数据:', JSON.stringify(data).substring(0, 500));
+      if (!response.ok) {
+        const errText = await response.text();
+        const errMsg = `API错误 ${response.status}: ${errText}`;
+        this._logApiCall({ timestamp: startTime, model, error: errMsg });
+        throw new Error(`API错误 ${response.status}: ${errText.substring(0, 200)}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let buffer = '';
+      let usageData = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content || '';
+            if (delta) {
+              fullContent += delta;
+              onChunk(delta, fullContent);
+            }
+            // 部分API在最后一个chunk带usage
+            if (parsed.usage) usageData = parsed.usage;
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+
+      this._logApiCall({
+        timestamp: startTime, model,
+        inputTokens: usageData?.prompt_tokens || this._estimateTokens(messages),
+        outputTokens: usageData?.completion_tokens || this._estimateTokens(fullContent)
+      });
+      return fullContent;
+    } catch(e) {
+      if (e.name === 'AbortError') {
+        this._logApiCall({ timestamp: startTime, model, error: '请求被取消(AbortError)' });
+      } else if (!e.message.startsWith('API错误')) {
+        this._logApiCall({ timestamp: startTime, model, error: e.message });
+      }
+      throw e;
     }
-
-    return content;
   },
 
   parseResponse(text, isGroup = false) {
     if (!text || !text.trim()) {
       return isGroup
         ? { messages: [{ sender: null, content: '(空回复)' }], thought: null, aiTransfers: [], aiRedPackets: [] }
-        : { thought: null, floors: ['(空回复)'], aiTransfers: [], aiRedPackets: [] };
+        : { thought: null, floors: [{ content: '(空回复)', quote: null }], aiTransfers: [], aiRedPackets: [] };
     }
 
     // 内置：清除模型思维链
@@ -353,19 +501,20 @@ location=新地点
     let cleaned = text.replace(/\[内心[：:].+?\]/g, '').replace(/<status>[\s\S]*?<\/status>/gi, '').trim();
 
     // 提取 <msg> 和 <voice> 标签 — 按出现顺序
-    const tagRegex = /<(msg|voice)(?:\s+name=["']([^"']*)["'])?\s*>([\s\S]*?)<\/\1>/gi;
+    const tagRegex = /<(msg|voice)(?:\s+name=["']([^"']*)["'])?(?:\s+quote=["']([^"']*)["'])?\s*>([\s\S]*?)<\/\1>/gi;
     const results = [];
     let match, lastSender = null;
     while ((match = tagRegex.exec(cleaned)) !== null) {
       const tagType = match[1].toLowerCase();
-      const content = match[3].trim();
+      const content = match[4].trim();
       if (!content) continue;
       const sender = match[2] || lastSender;
       lastSender = sender;
+      const quote = match[3] || null;
       if (tagType === 'voice') {
-        results.push({ sender, content: `[voice:${content}]` });
+        results.push({ sender, content: `[voice:${content}]`, quote });
       } else {
-        results.push({ sender, content });
+        results.push({ sender, content, quote });
       }
     }
 
@@ -415,13 +564,13 @@ location=新地点
       if (isGroup) {
         return { messages: floors.map(f => ({ sender: null, content: f })), thought, status, aiTransfers, aiRedPackets };
       }
-      return { thought, status, floors, aiTransfers, aiRedPackets };
+      return { thought, status, floors: floors.map(f => ({ content: f, quote: null })), aiTransfers, aiRedPackets };
     }
 
     if (isGroup) {
       return { messages: filteredResults, thought, status, aiTransfers, aiRedPackets };
     }
-    return { thought, status, floors: filteredResults.map(r => r.content), aiTransfers, aiRedPackets };
+    return { thought, status, floors: filteredResults.map(r => ({ content: r.content, quote: r.quote || null })), aiTransfers, aiRedPackets };
   }
 };
 

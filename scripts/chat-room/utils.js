@@ -129,13 +129,17 @@ const ChatUtils = {
   },
 
   getTimeContext() {
-    const h = new Date().getHours();
-    if (h >= 5 && h < 9) return '清晨';
-    if (h >= 9 && h < 12) return '上午';
-    if (h >= 12 && h < 14) return '中午';
-    if (h >= 14 && h < 18) return '下午';
-    if (h >= 18 && h < 22) return '晚上';
-    return '深夜';
+    const d = new Date();
+    const h = d.getHours();
+    const m = d.getMinutes().toString().padStart(2, '0');
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    let period = '深夜';
+    if (h >= 5 && h < 9) period = '清晨';
+    else if (h >= 9 && h < 12) period = '上午';
+    else if (h >= 12 && h < 14) period = '中午';
+    else if (h >= 14 && h < 18) period = '下午';
+    else if (h >= 18 && h < 22) period = '晚上';
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]} ${h}:${m} ${period}`;
   },
 
   getDateContext() {
@@ -144,15 +148,17 @@ const ChatUtils = {
     return `${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
   },
 
-  async getWeatherContext() {
-    try {
-      const stored = localStorage.getItem('weatherData');
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (Date.now() - data.timestamp < 3600000) return data.weather;
-      }
-    } catch (e) {}
-    return '天气未知';
+  getWeatherContext() {
+    const weatherType = localStorage.getItem('weatherType');
+    if (!weatherType) return '天气未知';
+    const weatherMap = {
+      'sunny': '晴天', 'cloudy': '多云', 'overcast': '阴天',
+      'rain-light': '小雨', 'rain-heavy': '大雨', 'rain': '雨天',
+      'snow': '下雪', 'snow-light': '小雪', 'snow-heavy': '大雪',
+      'fog': '雾天', 'wind': '大风', 'thunderstorm': '雷暴',
+      'haze': '雾霾', 'sleet': '雨夹雪'
+    };
+    return weatherMap[weatherType] || weatherType;
   }
 };
 

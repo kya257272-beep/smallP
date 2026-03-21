@@ -742,22 +742,38 @@ async function callAPI(messages, config) {
   if (!url.includes('/chat/completions')) {
     url += url.endsWith('/v1') ? '/chat/completions' : '/v1/chat/completions';
   }
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
-    body: JSON.stringify({
-      model: config.model || 'gpt-3.5-turbo',
-      messages,
-      temperature: config.temperature || 0.8,
-      max_tokens: config.maxTokens || 1000
-    })
-  });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error('API错误 ' + resp.status + ': ' + err.substring(0, 200));
+  const startTime = Date.now();
+  const model = config.model || 'gpt-3.5-turbo';
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: config.temperature || 0.8,
+        max_tokens: config.maxTokens || 1000
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      const errMsg = 'API错误 ' + resp.status + ': ' + err;
+      try { let logs = JSON.parse(localStorage.getItem('apiCallLogs')||'[]'); logs.push({ timestamp: startTime, model, error: errMsg }); if(logs.length>100) logs=logs.slice(-100); localStorage.setItem('apiCallLogs', JSON.stringify(logs)); } catch(e){}
+      throw new Error('API错误 ' + resp.status + ': ' + err.substring(0, 200));
+    }
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.response || data.output?.text || '';
+    const usage = data.usage || {};
+    const _est = (t) => { if(!t)return 0; const s=typeof t==='string'?t:JSON.stringify(t); let c=0,o=0; for(const ch of s){/[\u4e00-\u9fff]/.test(ch)?c++:o++;} return Math.ceil(c/1.5+o/4); };
+    try { let logs = JSON.parse(localStorage.getItem('apiCallLogs')||'[]'); logs.push({ timestamp: startTime, model, inputTokens: usage.prompt_tokens||_est(messages), outputTokens: usage.completion_tokens||_est(content) }); if(logs.length>100) logs=logs.slice(-100); localStorage.setItem('apiCallLogs', JSON.stringify(logs)); } catch(e){}
+    return content;
+  } catch(e) {
+    if (!e.message.startsWith('API错误')) {
+      try { let logs = JSON.parse(localStorage.getItem('apiCallLogs')||'[]'); logs.push({ timestamp: startTime, model, error: e.message }); if(logs.length>100) logs=logs.slice(-100); localStorage.setItem('apiCallLogs', JSON.stringify(logs)); } catch(ex){}
+    }
+    throw e;
   }
-  const data = await resp.json();
-  return data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.response || data.output?.text || '';
 }
 
 function generateMsgId() {
@@ -1161,8 +1177,9 @@ const VN = {
       } else if (this.paraIndex < this.paragraphs.length - 1) {
         nextEl.style.display = 'block';
       } else {
-        nextEl.style.display = 'none';
-        setTimeout(() => this.setWaiting(), 100);
+        // 最后一段：显示点击提示，等待用户手动点击进入输入模式
+        nextEl.style.display = 'block';
+        nextEl.textContent = '▼';
       }
     });
   },
@@ -1173,16 +1190,6 @@ const VN = {
 
     if (textEl.scrollTop + textEl.clientHeight < textEl.scrollHeight - 2) {
       textEl.scrollTop += textEl.clientHeight;
-      requestAnimationFrame(() => {
-        if (textEl.scrollTop + textEl.clientHeight >= textEl.scrollHeight - 2) {
-          if (this.paraIndex < this.paragraphs.length - 1) {
-            // still more paragraphs
-          } else {
-            nextEl.style.display = 'none';
-            setTimeout(() => this.setWaiting(), 100);
-          }
-        }
-      });
       return;
     }
 
@@ -1190,6 +1197,7 @@ const VN = {
     if (this.paraIndex < this.paragraphs.length) {
       this.showCurrentParagraph();
     } else {
+      // 所有段落已读完，进入等待输入模式
       nextEl.style.display = 'none';
       this.setWaiting();
     }
@@ -1429,28 +1437,46 @@ const VN = {
     const userSettings = JSON.parse(localStorage.getItem('userChatSettings') || '{}');
     const userName = userSettings.name || '用户';
 
-    // 构建完整的角色提示词(复用QQ私聊的完整人设)
-    let systemContent = '【角色人设】\n';
-    systemContent += '你是' + charName + '。';
-    if (char.description) systemContent += '\n描述: ' + char.description;
-    if (char.personality) systemContent += '\n性格: ' + char.personality;
-    if (char.system_prompt) systemContent += '\n' + char.system_prompt;
-    if (char.outfit) systemContent += '\n当前衣着: ' + char.outfit;
-    if (char.location) systemContent += '\n当前地点: ' + char.location;
-    if (char.affection !== undefined) systemContent += '\n对用户好感度: ' + char.affection + '/100';
-    if (char.mood !== undefined) systemContent += '\n当前心情: ' + char.mood + '/100';
+    // 按提示词条目顺序构建系统提示
+    const promptEntries = char.promptEntries || [
+      { id: 'char_persona', name: '角色人设', type: 'fixed', enabled: true },
+      { id: 'user_persona', name: '用户人设', type: 'fixed', enabled: true },
+      { id: 'summary', name: '总结信息', type: 'fixed', enabled: true }
+    ];
 
-    // 时间感知
-    const now = new Date();
-    systemContent += '\n当前时间: ' + now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    systemContent += '\n当前日期: ' + now.toLocaleDateString('zh-CN');
+    let systemContent = '';
 
-    systemContent += '\n\n【用户人设】\n用户: ' + userName;
-    if (userSettings.persona) systemContent += ' - ' + userSettings.persona;
+    for (const entry of promptEntries) {
+      if (!entry.enabled) continue;
 
-    // 总结信息
-    if (char.summaryContent?.text) {
-      systemContent += '\n\n【总结信息】\n之前的对话总结:\n' + char.summaryContent.text;
+      if (entry.id === 'char_persona') {
+        systemContent += '【角色人设】\n';
+        systemContent += '你是' + charName + '。';
+        if (char.description) systemContent += '\n描述: ' + char.description;
+        if (char.personality) systemContent += '\n性格: ' + char.personality;
+        if (char.system_prompt) systemContent += '\n' + char.system_prompt;
+        if (char.outfit) systemContent += '\n当前衣着: ' + char.outfit;
+        if (char.location) systemContent += '\n当前地点: ' + char.location;
+        if (char.affection !== undefined) systemContent += '\n对用户好感度: ' + char.affection + '/100';
+        if (char.mood !== undefined) systemContent += '\n当前心情: ' + char.mood + '/100';
+
+        // 时间感知
+        const now = new Date();
+        systemContent += '\n当前时间: ' + now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        systemContent += '\n当前日期: ' + now.toLocaleDateString('zh-CN');
+        systemContent += '\n\n';
+      } else if (entry.id === 'user_persona') {
+        systemContent += '【用户人设】\n用户: ' + userName;
+        if (userSettings.persona) systemContent += ' - ' + userSettings.persona;
+        systemContent += '\n\n';
+      } else if (entry.id === 'summary') {
+        if (char.summaryContent?.text) {
+          systemContent += '【总结信息】\n之前的对话总结:\n' + char.summaryContent.text + '\n\n';
+        }
+      } else if (entry.type === 'custom' && entry.content) {
+        systemContent += '【' + entry.name + '】\n';
+        systemContent += entry.content.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName) + '\n\n';
+      }
     }
 
     // 注入可用背景和立绘列表供模型选择
@@ -1484,15 +1510,6 @@ const VN = {
     systemContent += '[场景:樱花小路|微笑]<p>"早上好啊！"她微笑着向你挥了挥手。</p>\n';
     systemContent += '<p>微风吹过她的发梢，带来一丝花香。</p>\n';
     systemContent += '[场景:不变|害羞]<p>"那个...今天要一起走吗？"她低下头，声音渐渐小了下去。</p>';
-
-    // 自定义提示词条目
-    if (char.promptEntries) {
-      for (const entry of char.promptEntries) {
-        if (!entry.enabled || entry.type !== 'custom' || !entry.content) continue;
-        systemContent += '\n\n【' + entry.name + '】\n';
-        systemContent += entry.content.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName);
-      }
-    }
 
     const messages = [{ role: 'system', content: systemContent }];
 

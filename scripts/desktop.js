@@ -69,7 +69,7 @@ window.getDesktopLayout = function() {
       { id: 'music', name: '音乐', icon: '🎶', href: 'music.html', page: 0, position: 3 },
       { id: 'offline', name: '线下', icon: '🍀', href: 'offline-mode.html', page: 0, position: 4 },
       { id: 'momo', name: 'momo', icon: '🌸', href: 'momo.html', page: 0, position: 5 },
-      { id: 'preset', name: '预设配置', icon: '📝', href: 'preset.html', page: 1, position: 0 },
+      { id: 'terminal', name: '终端', icon: '🖥️', page: 1, position: 0 },
       { id: 'worldbook', name: '世界书', icon: '📚', href: 'worldbook.html', page: 1, position: 1 },
       { id: 'diary', name: '日记', icon: '🗓', href: 'diary.html', page: 1, position: 2 }
     ];
@@ -198,6 +198,7 @@ window.getDesktopLayout = function() {
     div.addEventListener('click', (e) => {
       if (isDragging || document.body.classList.contains('edit-mode')) return;
       if (e.target.classList.contains('delete-btn')) return;
+      if (app.id === 'terminal') { openTerminal(); return; }
       if (app.href) window.location.href = app.href;
       else openGenericModal(app.name);
     });
@@ -421,6 +422,82 @@ window.getDesktopLayout = function() {
     bindPageSwipe();
     bindIndicators();
     applyCurrentTheme();
+  }
+
+  // ========== 终端 ==========
+  function openTerminal() {
+    const modal = document.getElementById('terminal-modal');
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    renderTerminalLogs();
+    // 顶栏主题色
+    const topbar = modal.querySelector('.terminal-topbar');
+    if (topbar) {
+      let color = localStorage.getItem('buttonColor');
+      if (!color) {
+        const themeMap = { pink:'#f8cbd0', blue:'#a7c8f2', green:'#b8d6a2', yellow:'#f7d26d', purple:'#c3b0e6', black:'#333333' };
+        color = themeMap[localStorage.getItem('currentTheme') || localStorage.getItem('theme') || 'pink'] || '#f8cbd0';
+      }
+      topbar.style.background = color;
+    }
+  }
+  window.openTerminal = openTerminal;
+
+  function closeTerminal() {
+    const modal = document.getElementById('terminal-modal');
+    if (modal) { modal.classList.remove('active'); modal.setAttribute('aria-hidden', 'true'); }
+  }
+  window.closeTerminal = closeTerminal;
+
+  function clearApiLogs() {
+    if (!confirm('清空所有API调用记录？')) return;
+    localStorage.removeItem('apiCallLogs');
+    renderTerminalLogs();
+  }
+  window.clearApiLogs = clearApiLogs;
+
+  function renderTerminalLogs() {
+    const body = document.getElementById('terminal-body');
+    if (!body) return;
+    let logs = [];
+    try { logs = JSON.parse(localStorage.getItem('apiCallLogs') || '[]'); } catch(e) {}
+
+    if (logs.length === 0) {
+      body.innerHTML = '<div style="color:#666;padding:20px 0;">$ No API call logs yet.<br>$ Logs will appear here after AI conversations.</div>';
+      return;
+    }
+
+    // 最新的在最上面
+    let html = '';
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const log = logs[i];
+      const time = new Date(log.timestamp).toLocaleString('zh-CN');
+      const isError = !!log.error;
+      const statusColor = isError ? '#ff4444' : '#44ff44';
+      const statusText = isError ? 'ERROR' : 'OK';
+
+      html += `<div style="border-bottom:1px solid #222;padding:8px 0;">`;
+      html += `<div><span style="color:#888;">[${time}]</span> <span style="color:${statusColor};">${statusText}</span></div>`;
+      html += `<div style="margin-top:3px;"><span style="color:#0aa;">Model:</span> <span style="color:#fff;">${escapeHtml(log.model || '?')}</span>`;
+
+      if (isError) {
+        html += `</div><div style="margin-top:4px;color:#f66;word-break:break-all;white-space:pre-wrap;font-size:12px;">${escapeHtml(log.error)}</div>`;
+      } else {
+        const inTk = log.inputTokens != null ? log.inputTokens : '??';
+        const outTk = log.outputTokens != null ? log.outputTokens : '??';
+        html += `  <span style="color:#888;">|</span> <span style="color:#ff0;">In:</span> <span style="color:#fff;">${inTk} tk</span> <span style="color:#888;">|</span> <span style="color:#0f0;">Out:</span> <span style="color:#fff;">${outTk} tk</span>`;
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    }
+    body.innerHTML = html;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

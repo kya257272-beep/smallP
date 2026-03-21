@@ -485,6 +485,7 @@ const ChatSettings = {
   getDefaultPrivatePromptEntries() {
     return [
       { id: 'char_persona', name: '角色人设', type: 'fixed', enabled: true },
+      { id: 'mes_example', name: '对话示例', type: 'fixed', enabled: true },
       { id: 'user_persona', name: '用户人设', type: 'fixed', enabled: true },
       { id: 'summary', name: '总结信息', type: 'fixed', enabled: true },
       { id: 'chat_history', name: '聊天记录', type: 'fixed', enabled: true }
@@ -501,12 +502,22 @@ const ChatSettings = {
         if (char.description) text += `\n描述: ${char.description}`;
         if (char.personality) text += `\n性格: ${char.personality}`;
         if (char.system_prompt) text += `\n${char.system_prompt}`;
+        if (char.mes_example) {
+          const charName = char.name || '角色';
+          const userName = (ChatCore.userSettings || {}).name || '用户';
+          const example = char.mes_example.replace(/\{\{char\}\}/g, charName).replace(/\{\{user\}\}/g, userName);
+          text += `\n\n【对话示例】\n${example}`;
+        }
         return text;
       }
       case 'user_persona': {
         let text = `用户: ${userSettings.name || '我'}`;
         if (userSettings.persona) text += ` - ${userSettings.persona}`;
         return text;
+      }
+      case 'mes_example': {
+        const example = char.mes_example;
+        return example ? example.substring(0, 200) + (example.length > 200 ? '...' : '') : '(暂无对话示例，可在高级设定中添加)';
       }
       case 'summary': {
         const summary = char.summaryContent?.text;
@@ -558,6 +569,7 @@ const ChatSettings = {
     });
     html += '</div>';
     html += '<button class="save-btn" style="margin-top:12px;background:#4CAF50" onclick="ChatSettings.addPromptEntry()">+ 添加自定义条目</button>';
+    html += '<button class="save-btn" style="margin-top:8px;background:#2196F3" onclick="ChatSettings.importFromWorldBook()">📚 从世界书导入</button>';
 
     document.getElementById('edit-modal-title').textContent = '提示词';
     document.getElementById('edit-modal-body').innerHTML = html;
@@ -700,6 +712,138 @@ const ChatSettings = {
     if (!confirm('确定删除此条目？')) return;
     char.promptEntries.splice(index, 1);
     ChatCore.saveCharacter();
+    this.openPromptOrderSettings();
+  },
+
+  // 从世界书导入条目到提示词
+  async importFromWorldBook() {
+    let worldbooks = [];
+    try {
+      // 使用chat.js提供的openChatDB（已加载在chat-room.html中）
+      const db = await openChatDB();
+      const storeNames = Array.from(db.objectStoreNames);
+      console.log('DB stores:', storeNames);
+      if (!storeNames.includes('worldbooks')) {
+        ChatUtils.showToast('世界书数据库不存在，请先打开世界书App');
+        return;
+      }
+      const tx = db.transaction('worldbooks', 'readonly');
+      const store = tx.objectStore('worldbooks');
+      worldbooks = await new Promise((resolve, reject) => {
+        const req = store.getAll();
+        req.onsuccess = () => {
+          console.log('世界书getAll结果:', req.result);
+          resolve(req.result || []);
+        };
+        req.onerror = () => {
+          console.error('getAll失败:', req.error);
+          resolve([]);
+        };
+      });
+      const totalE = worldbooks.reduce((s, w) => s + (w.entries || []).length, 0);
+      console.log(`世界书 ${worldbooks.length} 本，共 ${totalE} 个条目`);
+    } catch (e) {
+      console.error('读取世界书失败:', e);
+      ChatUtils.showToast('读取世界书失败: ' + e.message);
+      return;
+    }
+
+    if (worldbooks.length === 0) {
+      ChatUtils.showToast('没有可用的世界书，请先在世界书App中创建');
+      return;
+    }
+
+    let html = '<div style="max-height:60vh;overflow-y:auto;">';
+    let hasAny = false;
+    worldbooks.forEach((wb, wi) => {
+      const entries = wb.entries || [];
+      // 世界书本身描述也可以作为导入项
+      const hasDescription = wb.description && wb.description.trim();
+      if (entries.length === 0 && !hasDescription) return;
+      hasAny = true;
+      html += `<div style="margin-bottom:12px;"><div style="font-weight:bold;font-size:14px;margin-bottom:6px;">📖 ${this.escapeHtml(wb.name)}</div>`;
+      // 如果世界书有描述，允许导入整本世界书描述
+      if (hasDescription) {
+        html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+          <input type="checkbox" data-wb="${wi}" data-entry="desc">
+          <span>📘 整本描述</span>
+          <span style="color:#999;font-size:11px;margin-left:auto;">${wb.description.substring(0, 30)}${wb.description.length > 30 ? '...' : ''}</span>
+        </label>`;
+      }
+      entries.forEach((entry, ei) => {
+        const name = entry.comment || (Array.isArray(entry.keys) ? entry.keys.join(', ') : entry.keys) || `条目${ei + 1}`;
+        html += `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+          <input type="checkbox" data-wb="${wi}" data-entry="${ei}">
+          <span>${this.escapeHtml(name)}</span>
+          <span style="color:#999;font-size:11px;margin-left:auto;">${(entry.content || '').substring(0, 30)}...</span>
+        </label>`;
+      });
+      html += '</div>';
+    });
+
+    if (!hasAny) {
+      ChatUtils.showToast('世界书中没有可导入的内容（请在世界书App中添加描述或条目）');
+      return;
+    }
+
+    html += '</div>';
+    html += '<button class="save-btn" style="margin-top:12px;" onclick="ChatSettings._doImportWorldBookEntries()">导入选中条目</button>';
+
+    document.getElementById('edit-modal-title').textContent = '从世界书导入';
+    document.getElementById('edit-modal-body').innerHTML = html;
+    ChatUI.showModal('edit-modal');
+
+    // 暂存世界书数据
+    this._importWorldBooks = worldbooks;
+  },
+
+  _doImportWorldBookEntries() {
+    const worldbooks = this._importWorldBooks || [];
+    const char = ChatCore.currentCharacter;
+    if (!char.promptEntries) char.promptEntries = this.getDefaultPrivatePromptEntries();
+
+    const checkboxes = document.querySelectorAll('#edit-modal-body input[type="checkbox"]:checked');
+    let count = 0;
+    checkboxes.forEach(cb => {
+      const wi = parseInt(cb.dataset.wb);
+      const entryVal = cb.dataset.entry;
+      const wb = worldbooks[wi];
+      if (!wb) return;
+
+      if (entryVal === 'desc') {
+        // 导入世界书描述
+        char.promptEntries.push({
+          id: 'custom_wb_' + Date.now() + '_' + count,
+          name: `[WB] ${wb.name}`,
+          content: wb.description || '',
+          type: 'custom',
+          enabled: true
+        });
+        count++;
+      } else {
+        const ei = parseInt(entryVal);
+        const entry = (wb.entries || [])[ei];
+        if (!entry) return;
+        const name = entry.comment || (Array.isArray(entry.keys) ? entry.keys.join(', ') : entry.keys) || '世界书条目';
+        char.promptEntries.push({
+          id: 'custom_wb_' + Date.now() + '_' + count,
+          name: `[WB] ${name}`,
+          content: entry.content || '',
+          type: 'custom',
+          enabled: true
+        });
+        count++;
+      }
+    });
+
+    if (count === 0) {
+      ChatUtils.showToast('未选择任何条目');
+      return;
+    }
+
+    ChatCore.saveCharacter();
+    ChatUI.hideModal('edit-modal');
+    ChatUtils.showToast(`已导入 ${count} 个条目`);
     this.openPromptOrderSettings();
   },
 

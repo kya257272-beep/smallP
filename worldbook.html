@@ -15,12 +15,6 @@
     <button class="topbar-btn add-btn" onclick="openCreateModal()">+</button>
   </div>
 
-  <!-- 标签页切换 -->
-  <div class="wb-tabs">
-    <div class="wb-tab active" data-tab="character" onclick="switchTab('character')">角色世界书</div>
-    <div class="wb-tab" data-tab="global" onclick="switchTab('global')">全局世界书</div>
-  </div>
-
   <!-- 搜索栏 -->
   <div class="wb-search">
     <input type="text" id="wb-search-input" placeholder="🔍 搜索世界书或条目..." oninput="searchWorldBooks()">
@@ -48,13 +42,7 @@
           <label>描述</label>
           <textarea id="wb-description" rows="3" placeholder="这本世界书的简介..."></textarea>
         </div>
-        <div class="form-group">
-          <label>关联角色</label>
-          <select id="wb-character">
-            <option value="">全局世界书（不关联角色）</option>
-            <!-- 动态填充角色列表 -->
-          </select>
-        </div>
+        <input type="hidden" id="wb-character" value="">
         <input type="hidden" id="wb-edit-id">
         <button class="save-btn" onclick="saveWorldBook()">保存世界书</button>
       </div>
@@ -80,14 +68,9 @@
             <span class="wb-info-label">描述：</span>
             <span class="wb-info-value" id="detail-description">-</span>
           </div>
-          <div class="wb-info-row">
-            <span class="wb-info-label">关联：</span>
-            <span class="wb-info-value" id="detail-character">全局</span>
-          </div>
           <div class="wb-info-actions">
             <button class="action-btn edit" onclick="editCurrentWorldBook()">✏️ 编辑</button>
             <button class="action-btn delete" onclick="deleteCurrentWorldBook()">🗑️ 删除</button>
-            <button class="action-btn export" onclick="exportCurrentWorldBook()">📤 导出</button>
           </div>
         </div>
 
@@ -185,49 +168,38 @@
     </div>
   </div>
 
-  <!-- 导入世界书弹窗 -->
-  <div class="modal" id="import-modal">
-    <div class="modal-backdrop" onclick="closeImportModal()"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <span>导入世界书</span>
-        <button class="close-btn" onclick="closeImportModal()">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="import-options">
-          <div class="import-option" onclick="importFromFile()">
-            <div class="option-icon">📄</div>
-            <div class="option-text">从JSON文件导入</div>
-          </div>
-          <div class="import-option" onclick="importFromClipboard()">
-            <div class="option-icon">📋</div>
-            <div class="option-text">从剪贴板粘贴</div>
-          </div>
-        </div>
-        
-        <div class="import-paste-area" id="import-paste-area" style="display:none;">
-          <textarea id="import-text" rows="8" placeholder="粘贴世界书JSON数据..."></textarea>
-          <button class="save-btn" onclick="processImport()">确认导入</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 底部操作栏 -->
-  <div class="wb-bottom-bar">
-    <button class="bottom-btn" onclick="openImportModal()">
-      <span class="btn-icon">📥</span>
-      <span class="btn-text">导入</span>
-    </button>
-    <button class="bottom-btn" onclick="exportAllWorldBooks()">
-      <span class="btn-icon">📤</span>
-      <span class="btn-text">导出全部</span>
-    </button>
-  </div>
-
-  <!-- 隐藏的文件输入 -->
-  <input type="file" id="wb-file-input" accept=".json" style="display:none" onchange="handleFileImport(this)">
 
   <script src="scripts/worldbook.js"></script>
+  <script>
+    // 壁纸主题色同步（与wallpaper.html设置关联）
+    (function() {
+      const themeColorMap = {
+        pink: '#f8cbd0', blue: '#a7c8f2', green: '#b8d6a2',
+        yellow: '#f7d26d', purple: '#c3b0e6', black: '#333333'
+      };
+
+      // 优先读取壁纸页面设置的buttonColor，否则读theme主题名
+      let color = localStorage.getItem('buttonColor');
+      if (!color) {
+        const theme = localStorage.getItem('theme') || 'pink';
+        color = themeColorMap[theme] || '#f8cbd0';
+      }
+
+      const topbar = document.querySelector('.wb-topbar');
+      if (topbar) {
+        topbar.style.background = color;
+        topbar.style.color = '#fff';
+      }
+      document.documentElement.style.setProperty('--theme-color', color);
+
+      // 壁纸背景
+      const wallpaperURL = localStorage.getItem('customWallpaperURL');
+      if (wallpaperURL) {
+        document.body.style.backgroundImage = `url(${wallpaperURL})`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+      }
+    })();
+  </script>
 </body>
 </html>

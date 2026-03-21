@@ -86,6 +86,10 @@ const ChatUI = {
     let frame = '';
     if (type === 'received') {
       frame = memberFrame || ChatCore.currentCharacter?.settings?.avatarFrame || '';
+    } else if (type === 'sent') {
+      // 用户头像框：从QQ主题设置读取
+      const qqTheme = JSON.parse(localStorage.getItem('qqTheme') || '{}');
+      frame = qqTheme.userAvatarFrame || '';
     }
 
     // 气泡样式：优先使用传入的成员级别设置

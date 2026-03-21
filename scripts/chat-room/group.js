@@ -1226,7 +1226,7 @@ const ChatGroup = {
         );
 
         html += `
-          <div class="search-result-item">
+          <div class="search-result-item" onclick="ChatGroup.jumpToMessage('${msg.id}')" style="cursor:pointer">
             <div class="search-result-header">
               <span class="search-result-sender">${ChatSettings.escapeHtml(senderName)}</span>
               <span class="search-result-date">${dateStr} ${time}</span>
@@ -1237,6 +1237,21 @@ const ChatGroup = {
       });
       container.innerHTML = html;
     };
+  },
+
+  // 跳转到指定消息
+  jumpToMessage(msgId) {
+    // 关闭搜索弹窗
+    ChatUI.hideModal('search-history-modal');
+    // 查找并滚动到目标消息
+    const target = document.querySelector(`[data-msg-id="${msgId}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.style.background = 'rgba(255,213,0,0.15)';
+      setTimeout(() => target.style.background = '', 2000);
+    } else {
+      ChatUtils.showToast('该消息不在当前加载范围内');
+    }
   }
 };
 

@@ -1655,11 +1655,16 @@ body.chatroom-body {
 /* ===== ⑥ 群聊工具图标 ===== */
 #group-plus-modal .action-icon {
   font-size: 30px;
-  background: none !important;
   width: auto;
   height: auto;
   line-height: 1;
   border-radius: 0;
+}
+#group-plus-modal .action-icon.themed-icon {
+  background: var(--theme-gradient, var(--theme-icon-color)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
 }
 
 #group-plus-modal .action-name {

@@ -323,14 +323,31 @@ async function renderSavedWallpapers() {
 }
 
 /* ========== 图标自定义相关 ========== */
-const defaultIcons = [
-  { app: 'api', name: 'API配置', emoji: '🎀' },
-  { app: 'chat', name: '聊天', emoji: '💬' },
-  { app: 'preset', name: '预设配置', emoji: '📝' },
-  { app: 'music', name: '音乐', emoji: '🎶' },
-  { app: 'wallpaper', name: '壁纸', emoji: '🎨' },
-  { app: 'momo', name: 'MoMo', emoji: '🌸' }
-];
+function getDefaultIcons() {
+  const defaultMap = {
+    'api': { name: 'API配置', emoji: '🎀' },
+    'chat': { name: '聊天', emoji: '💬' },
+    'music': { name: '音乐', emoji: '🎶' },
+    'wallpaper': { name: '壁纸', emoji: '🎨' },
+    'momo': { name: 'MoMo', emoji: '🌸' },
+    'offline': { name: '线下', emoji: '🍀' },
+    'terminal': { name: '终端', emoji: '🖥️' },
+    'worldbook': { name: '世界书', emoji: '📚' },
+    'diary': { name: '日记', emoji: '🗓' }
+  };
+  try {
+    const layout = JSON.parse(localStorage.getItem('desktopAppsLayout') || '[]');
+    if (layout.length > 0) {
+      return layout.map(app => ({
+        app: app.id,
+        name: app.name || defaultMap[app.id]?.name || app.id,
+        emoji: app.icon || defaultMap[app.id]?.emoji || '📱'
+      }));
+    }
+  } catch (e) {}
+  return Object.entries(defaultMap).map(([id, v]) => ({ app: id, name: v.name, emoji: v.emoji }));
+}
+const defaultIcons = getDefaultIcons();
 
 let selectedIconApp = null;
 

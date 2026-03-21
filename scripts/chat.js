@@ -953,30 +953,73 @@ async function generateRandomDynamic() {
 }
 
 async function callAIForDynamic(char, isSignature, config) {
-  const prompt = isSignature 
-    ? `你是${char.name}，请生成一条简短的个性签名（10-20字）：`
-    : `你是${char.name}，请发一条QQ空间动态（30-100字），可以是日常分享、心情、或者想法：`;
-  
+  const charName = char.name || '角色';
+  const userName = char.userSettings?.name || '用户';
+
+  // 构建包含所有已启用提示词条目的系统提示
+  let systemContent = '';
+  const promptEntries = char.promptEntries || [];
+  for (const entry of promptEntries) {
+    if (!entry.enabled) continue;
+    if (entry.id === 'char_persona') {
+      systemContent += `【角色人设】\n你是${charName}。`;
+      if (char.description) systemContent += `\n描述: ${char.description}`;
+      if (char.personality) systemContent += `\n性格: ${char.personality}`;
+      if (char.system_prompt) systemContent += `\n${char.system_prompt}`;
+      systemContent += '\n\n';
+    } else if (entry.id === 'user_persona') {
+      systemContent += `【用户人设】\n用户: ${userName}`;
+      if (char.userSettings?.persona) systemContent += ` - ${char.userSettings.persona}`;
+      systemContent += '\n\n';
+    } else if (entry.type === 'custom' && entry.content) {
+      systemContent += `【${entry.name}】\n${entry.content.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName)}\n\n`;
+    }
+  }
+  // 如果没有提示词条目，使用简单人设
+  if (!systemContent) {
+    systemContent = `你是${charName}。${char.description || ''}`;
+  }
+
+  const prompt = isSignature
+    ? `请生成一条简短的个性签名（10-20字）：`
+    : `请发一条QQ空间动态（30-100字），可以是日常分享、心情、或者想法：`;
+
   let endpoint = config.provider;
   if (!endpoint.startsWith('http')) endpoint = 'https://' + endpoint;
   if (!endpoint.includes('/v1/chat/completions')) endpoint = endpoint.replace(/\/$/, '') + '/v1/chat/completions';
-  
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.key}` },
     body: JSON.stringify({
       model: config.model || 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: `你是${char.name}。${char.description || ''}` },
+        { role: 'system', content: systemContent },
         { role: 'user', content: prompt }
       ],
       temperature: 0.9,
       max_tokens: 100
     })
   });
-  
+
   const data = await response.json();
-  return data.choices[0]?.message?.content?.trim() || '今天也是美好的一天~';
+  const result = data.choices[0]?.message?.content?.trim() || '今天也是美好的一天~';
+  const usage = data.usage || {};
+
+  try {
+    const _est = (t) => { if(!t)return 0; const s=typeof t==='string'?t:JSON.stringify(t); let c=0,o=0; for(const ch of s){/[\u4e00-\u9fff]/.test(ch)?c++:o++;} return Math.ceil(c/1.5+o/4); };
+    let logs = JSON.parse(localStorage.getItem('apiCallLogs') || '[]');
+    logs.push({
+      timestamp: Date.now(),
+      model: config.model || 'gpt-3.5-turbo',
+      inputTokens: usage.prompt_tokens || _est(prompt),
+      outputTokens: usage.completion_tokens || _est(result)
+    });
+    if (logs.length > 100) logs = logs.slice(-100);
+    localStorage.setItem('apiCallLogs', JSON.stringify(logs));
+  } catch(e) {}
+
+  return result;
 }
 
 async function renderDynamics() {
@@ -1455,6 +1498,32 @@ async function callAIForComment(charId, dynContent, userComment, dynId) {
     const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
     if (!apiConfig.key || !apiConfig.provider) return;
 
+    // 构建包含所有已启用提示词条目的系统提示
+    const charName = char.name || '角色';
+    const userName = char.userSettings?.name || '用户';
+    let systemContent = '';
+    const promptEntries = char.promptEntries || [];
+    for (const entry of promptEntries) {
+      if (!entry.enabled) continue;
+      if (entry.id === 'char_persona') {
+        systemContent += `【角色人设】\n你是${charName}。`;
+        if (char.description) systemContent += `\n描述: ${char.description}`;
+        if (char.personality) systemContent += `\n性格: ${char.personality}`;
+        if (char.system_prompt) systemContent += `\n${char.system_prompt}`;
+        systemContent += '\n\n';
+      } else if (entry.id === 'user_persona') {
+        systemContent += `【用户人设】\n用户: ${userName}`;
+        if (char.userSettings?.persona) systemContent += ` - ${char.userSettings.persona}`;
+        systemContent += '\n\n';
+      } else if (entry.type === 'custom' && entry.content) {
+        systemContent += `【${entry.name}】\n${entry.content.replace(/{{char}}/g, charName).replace(/{{user}}/g, userName)}\n\n`;
+      }
+    }
+    if (!systemContent) {
+      systemContent = `你是${charName}。${char.description || ''}`;
+    }
+    systemContent += '\n请用1-2条短句回复动态评论，不要使用标签。';
+
     let endpoint = apiConfig.provider;
     if (!endpoint.startsWith('http')) endpoint = 'https://' + endpoint;
     if (!endpoint.includes('/v1/chat/completions')) endpoint = endpoint.replace(/\/$/, '') + '/v1/chat/completions';
@@ -1465,7 +1534,7 @@ async function callAIForComment(charId, dynContent, userComment, dynId) {
       body: JSON.stringify({
         model: apiConfig.model || 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: `你是${char.name}。${char.description || ''}。请用1-2条短句回复动态评论，不要使用标签。` },
+          { role: 'system', content: systemContent },
           { role: 'user', content: `动态内容："${dynContent}"。有人评论了："${userComment}"。请回复：` }
         ],
         temperature: 0.9,
@@ -1475,6 +1544,21 @@ async function callAIForComment(charId, dynContent, userComment, dynId) {
 
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content?.trim();
+    const usage = data.usage || {};
+
+    try {
+      const _est = (t) => { if(!t)return 0; const s=typeof t==='string'?t:JSON.stringify(t); let c=0,o=0; for(const ch of s){/[\u4e00-\u9fff]/.test(ch)?c++:o++;} return Math.ceil(c/1.5+o/4); };
+      let logs = JSON.parse(localStorage.getItem('apiCallLogs') || '[]');
+      logs.push({
+        timestamp: Date.now(),
+        model: apiConfig.model || 'gpt-3.5-turbo',
+        inputTokens: usage.prompt_tokens || _est(userComment),
+        outputTokens: usage.completion_tokens || _est(reply)
+      });
+      if (logs.length > 100) logs = logs.slice(-100);
+      localStorage.setItem('apiCallLogs', JSON.stringify(logs));
+    } catch(e) {}
+
     if (!reply) return;
 
     const dyn = await new Promise((res, rej) => {
@@ -1508,3 +1592,121 @@ async function deletePost(dynId) {
     console.error('删除动态失败:', e);
   }
 }
+
+// ========== 后台生成完成器 ==========
+// 用户退出聊天时如果AI正在生成，生成上下文会保存到 localStorage.pendingGeneration
+// 在聊天列表页加载时检查并完成生成
+(async function checkPendingGeneration() {
+  const pending = localStorage.getItem('pendingGeneration');
+  if (!pending) return;
+  localStorage.removeItem('pendingGeneration');
+
+  try {
+    const ctx = JSON.parse(pending);
+    if (!ctx.messages || !ctx.apiConfig || !ctx.chatId) return;
+
+    console.log('后台继续生成回复，chatId:', ctx.chatId);
+
+    // 直接调用API（不用流式，后台用非流式即可）
+    let url = ctx.apiConfig.apiUrl || 'https://api.openai.com/v1/chat/completions';
+    url = url.replace(/\/+$/, '');
+    if (!url.includes('/chat/completions')) {
+      url += (url.endsWith('/v1') ? '' : '/v1') + '/chat/completions';
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ctx.apiConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: ctx.apiConfig.model || 'gpt-3.5-turbo',
+        messages: ctx.messages,
+        temperature: ctx.apiConfig.temperature || 0.8,
+        max_tokens: ctx.apiConfig.maxTokens || 1000
+      })
+    });
+
+    if (!response.ok) {
+      console.error('后台生成API错误:', response.status);
+      return;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    if (!content) return;
+
+    // 解析回复并保存到数据库
+    const db = await openChatDB();
+
+    if (ctx.isGroup) {
+      // 群聊：解析多条消息
+      const msgRegex = /<(msg|voice)(?:\s+name=["']([^"']*)["'])?(?:\s+[^>]*)?\s*>([\s\S]*?)<\/\1>/gi;
+      let match;
+      while ((match = msgRegex.exec(content)) !== null) {
+        const sender = match[2] || ctx.charName;
+        const msgContent = match[3].trim();
+        if (!msgContent) continue;
+
+        const msgId = 'bg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const member = (ctx.members || []).find(m => m.name === sender);
+        const msgObj = {
+          id: msgId,
+          chatId: ctx.chatId,
+          content: msgContent,
+          type: 'received',
+          sender: sender,
+          avatar: member?.avatar || null,
+          timestamp: Date.now()
+        };
+
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(MSG_STORE, 'readwrite');
+          tx.objectStore(MSG_STORE).put(msgObj);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+      }
+    } else {
+      // 私聊：解析楼层
+      const floorRegex = /<(msg|voice)(?:\s+[^>]*)?\s*>([\s\S]*?)<\/\1>/gi;
+      let match;
+      const floors = [];
+      while ((match = floorRegex.exec(content)) !== null) {
+        const floorContent = match[2].trim();
+        if (floorContent) floors.push(floorContent);
+      }
+      // 没有标签包裹时整段作为回复
+      if (floors.length === 0) {
+        const cleaned = content.replace(/<status>[\s\S]*?<\/status>/gi, '')
+          .replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        if (cleaned) floors.push(cleaned);
+      }
+
+      for (const floorContent of floors) {
+        const msgId = 'bg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const msgObj = {
+          id: msgId,
+          chatId: ctx.chatId,
+          content: floorContent,
+          type: 'received',
+          sender: ctx.charName,
+          avatar: ctx.charAvatar,
+          timestamp: Date.now()
+        };
+
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(MSG_STORE, 'readwrite');
+          tx.objectStore(MSG_STORE).put(msgObj);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+      }
+    }
+
+    console.log('后台生成完成，已保存回复');
+  } catch (e) {
+    console.error('后台生成失败:', e);
+  }
+})();

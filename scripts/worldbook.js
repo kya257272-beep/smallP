@@ -1,13 +1,14 @@
 /* scripts/worldbook.js - 世界书管理 */
 
-// 数据库配置（与chat.js共享）
+// 数据库配置（与chat.js共享，版本号必须一致）
 const CHAT_DB_NAME = 'ChatDB';
-const CHAT_DB_VERSION = 3;
+const CHAT_DB_VERSION = 4;
 const CHAR_STORE = 'characters';
+const MSG_STORE = 'messages';
+const DYNAMIC_STORE = 'dynamics';
 const WORLDBOOK_STORE = 'worldbooks';
 
 let wbDB = null;
-let currentTab = 'character';
 let currentWorldBook = null;
 let allCharacters = [];
 
@@ -26,17 +27,24 @@ function openWBDatabase() {
     
     request.onupgradeneeded = (e) => {
       const db = e.target.result;
-      
+
       if (!db.objectStoreNames.contains(CHAR_STORE)) {
         const charStore = db.createObjectStore(CHAR_STORE, { keyPath: 'id' });
         charStore.createIndex('name', 'name', { unique: false });
       }
-      
+      if (!db.objectStoreNames.contains(MSG_STORE)) {
+        const msgStore = db.createObjectStore(MSG_STORE, { keyPath: 'id' });
+        msgStore.createIndex('chatId', 'chatId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(DYNAMIC_STORE)) {
+        const dynStore = db.createObjectStore(DYNAMIC_STORE, { keyPath: 'id' });
+        dynStore.createIndex('characterId', 'characterId', { unique: false });
+        dynStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
       if (!db.objectStoreNames.contains(WORLDBOOK_STORE)) {
         const wbStore = db.createObjectStore(WORLDBOOK_STORE, { keyPath: 'id' });
         wbStore.createIndex('name', 'name', { unique: false });
         wbStore.createIndex('characterId', 'characterId', { unique: false });
-        wbStore.createIndex('createdAt', 'createdAt', { unique: false });
       }
     };
   });
@@ -120,12 +128,8 @@ function goBack() {
   }
 }
 
-// 切换标签
+// 切换标签（已移除，保留兼容）
 function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('.wb-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === tab);
-  });
   renderWorldBookList();
 }
 
@@ -146,22 +150,16 @@ async function renderWorldBookList() {
   if (!list) return;
   
   const worldbooks = await getAllWorldBooks();
-  
-  // 根据标签过滤
-  const filtered = worldbooks.filter(wb => {
-    if (currentTab === 'global') {
-      return !wb.characterId || wb.isGlobal;
-    } else {
-      return wb.characterId && !wb.isGlobal;
-    }
-  });
+
+  // 显示所有世界书（不再区分角色/全局）
+  const filtered = worldbooks;
   
   if (filtered.length === 0) {
     list.innerHTML = `
       <div class="wb-empty">
         <div class="icon">📚</div>
         <div class="text">
-          ${currentTab === 'global' ? '还没有全局世界书' : '还没有角色世界书'}<br>
+          还没有世界书<br>
           点击右上角 + 创建
         </div>
       </div>
@@ -176,15 +174,15 @@ async function renderWorldBookList() {
     const char = allCharacters.find(c => c.id === wb.characterId);
     const entryCount = wb.entries ? wb.entries.length : 0;
     const enabledCount = wb.entries ? wb.entries.filter(e => e.enabled).length : 0;
-    
+
     return `
       <div class="wb-card" onclick="openWorldBookDetail('${wb.id}')">
         <div class="wb-card-header">
-          <div class="wb-icon ${wb.isGlobal || !wb.characterId ? 'global' : ''}">📖</div>
+          <div class="wb-icon">📖</div>
           <div class="wb-card-info">
             <div class="wb-card-name">${escapeHtml(wb.name)}</div>
             <div class="wb-card-meta">
-              ${char ? `关联: ${escapeHtml(char.name)}` : '全局世界书'}
+              ${wb.description ? escapeHtml(wb.description).substring(0, 30) : '世界书'}
             </div>
           </div>
           <div class="wb-card-arrow">›</div>
@@ -245,7 +243,6 @@ function openCreateModal() {
   document.getElementById('create-modal-title').textContent = '创建世界书';
   document.getElementById('wb-name').value = '';
   document.getElementById('wb-description').value = '';
-  document.getElementById('wb-character').value = currentTab === 'global' ? '' : '';
   document.getElementById('wb-edit-id').value = '';
   document.getElementById('create-wb-modal').classList.add('active');
 }
@@ -260,32 +257,36 @@ async function saveWorldBook() {
     alert('请输入世界书名称');
     return;
   }
-  
+
   const editId = document.getElementById('wb-edit-id').value;
-  const characterId = document.getElementById('wb-character').value;
-  
-  let worldbook;
-  if (editId) {
-    worldbook = await getWorldBookById(editId);
-    worldbook.name = name;
-    worldbook.description = document.getElementById('wb-description').value.trim();
-    worldbook.characterId = characterId || null;
-    worldbook.isGlobal = !characterId;
-  } else {
-    worldbook = {
-      id: 'wb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-      name: name,
-      description: document.getElementById('wb-description').value.trim(),
-      characterId: characterId || null,
-      isGlobal: !characterId,
-      createdAt: Date.now(),
-      entries: []
-    };
+
+  try {
+    let worldbook;
+    if (editId) {
+      worldbook = await getWorldBookById(editId);
+      worldbook.name = name;
+      worldbook.description = document.getElementById('wb-description').value.trim();
+      worldbook.characterId = null;
+      worldbook.isGlobal = true;
+    } else {
+      worldbook = {
+        id: 'wb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        name: name,
+        description: document.getElementById('wb-description').value.trim(),
+        characterId: null,
+        isGlobal: true,
+        createdAt: Date.now(),
+        entries: []
+      };
+    }
+
+    await saveWorldBookToDB(worldbook);
+    closeCreateModal();
+    await renderWorldBookList();
+  } catch (e) {
+    console.error('保存世界书失败:', e);
+    alert('保存失败: ' + e.message);
   }
-  
-  await saveWorldBookToDB(worldbook);
-  closeCreateModal();
-  renderWorldBookList();
 }
 
 // ========== 世界书详情 ==========
@@ -293,12 +294,9 @@ async function openWorldBookDetail(id) {
   currentWorldBook = await getWorldBookById(id);
   if (!currentWorldBook) return;
   
-  const char = allCharacters.find(c => c.id === currentWorldBook.characterId);
-  
   document.getElementById('detail-modal-title').textContent = currentWorldBook.name;
   document.getElementById('detail-name').textContent = currentWorldBook.name;
   document.getElementById('detail-description').textContent = currentWorldBook.description || '无描述';
-  document.getElementById('detail-character').textContent = char ? char.name : '全局';
   
   renderEntriesList();
   document.getElementById('wb-detail-modal').classList.add('active');
@@ -465,7 +463,6 @@ function editCurrentWorldBook() {
   document.getElementById('create-modal-title').textContent = '编辑世界书';
   document.getElementById('wb-name').value = currentWorldBook.name;
   document.getElementById('wb-description').value = currentWorldBook.description || '';
-  document.getElementById('wb-character').value = currentWorldBook.characterId || '';
   document.getElementById('wb-edit-id').value = currentWorldBook.id;
   
   closeDetailModal();
